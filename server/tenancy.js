@@ -7,10 +7,9 @@ import { all, one, insert, scalar } from './db.js';
 import { isoNow, hashPassword, randomToken } from './lib.js';
 import { DEFAULT_ROLES } from './auth.js';
 
-/** Garante os perfis padrao da igreja (idempotente). */
+/** Garante os perfis padrao da igreja (idempotente). Retorna a lista de slugs presentes. */
 export function ensureChurchRoles(churchId) {
   const existing = new Set(all('SELECT slug FROM roles WHERE church_id = ? AND deleted_at IS NULL', [churchId]).map((r) => r.slug));
-  let created = 0;
   for (const role of DEFAULT_ROLES) {
     if (existing.has(role.slug)) continue;
     insert('roles', {
@@ -18,10 +17,19 @@ export function ensureChurchRoles(churchId) {
       permissions: JSON.stringify(role.permissions || {}), is_system: 1, is_demo: 0,
       created_at: isoNow(), updated_at: isoNow(),
     });
-    created++;
   }
-  return created;
+  return all('SELECT slug FROM roles WHERE church_id = ? AND deleted_at IS NULL ORDER BY slug', [churchId]).map((r) => r.slug);
 }
+
+/** Generate a random memorable password. */
+import crypto from 'node:crypto';
+export const generatePassword = (len = 12) => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%&*';
+  const buf = crypto.randomBytes(len);
+  let out = '';
+  for (let i = 0; i < len; i++) out += alphabet[buf[i] % alphabet.length];
+  return out;
+};
 
 /** Cria uma igreja (tenant) nova, ja com os perfis padrao. */
 export function createChurch({ name, city, state, email, phone, cnpj, isDemo = false }) {

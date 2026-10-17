@@ -109,23 +109,29 @@ const API_MISSING_MSG = 'O servidor da aplicação não respondeu neste endereç
 
 function authHero() {
   return `<div class="auth-hero">
-    <div class="brandline">
+    <header class="brandline">
       <span class="brand-mark">E1</span>
       <div><b style="font-size:19px">Eclesia One</b><div class="small">Centro de Comando Digital da Igreja</div></div>
-    </div>
-    <div>
-      <div class="eyebrow">Porque Dele, e por Ele, e para Ele são todas as coisas</div>
-      <h1>Cada igreja, um ambiente único. CadaPastor, a sua rede.</h1>
-      <p class="lead">Pessoas, famílias, células, ministérios, pastoral, financeiro e operação em um só lugar. Cada cadastro é isolado por igreja no servidor — o que você registra aqui nunca aparece na igreja do lado.</p>
+    </header>
+    <main>
+      <div class="eyebrow">Plataforma de gestão eclesiástica</div>
+      <h1>Cada igreja, um ambiente único.<br/>Cada pastor, a sua rede.</h1>
+      <p class="lead">Pessoas, famílias, células, ministérios, pastoral, financeiro e operação reunidos em um só lugar, com o princípio do <i>isolamento por igreja</i>: tudo o que você registra aqui permanece na sua igreja.</p>
       <ul class="auth-perks">
-        <li>${icon('check')}<span>Indicadores críticos na primeira tela</span></li>
-        <li>${icon('check')}<span>Permissões por perfil verificadas no servidor (RBAC em 26 módulos)</span></li>
-        <li>${icon('check')}<span>Financeiro com fluxo de caixa projetado em 30+ dias</span></li>
-        <li>${icon('check')}<span>Pastor ADM cria sua rede de apoiadores, trabalhadores e fiéis</b></span></li>
-        <li>${icon('check')}<span>Auditoria completa: cada operação registra autor e horário</span></li>
+        <li>${icon('check')}<span>Visão executiva na primeira tela</span></li>
+        <li>${icon('check')}<span>Permissões verificadas no servidor (RBAC em 26 módulos)</span></li>
+        <li>${icon('check')}<span>Financeiro com fluxo de caixa projetado</span></li>
+        <li>${icon('check')}<span>Cada Pastor ADM cria a própria equipe — secretários, líderes, professores, membros</span></li>
+        <li>${icon('check')}<span>Auditoria registrando autor, data e operação de cada movimento</span></li>
       </ul>
-    </div>
-    <div class="verse"><b>Romanos 11:36</b>“Porque Dele, e por Ele, e para Ele são todas as coisas. A Ele, pois, a glória eternamente. Amém.”</div>
+    </main>
+    <footer class="verse">
+      <span class="verse-mark">“</span>
+      <div>
+        <p>Porque dele, e por ele, e para ele são todas as coisas. A ele, pois, a glória eternamente. Amém.</p>
+        <b>Romanos 11:36</b>
+      </div>
+    </footer>
   </div>`;
 }
 
@@ -184,38 +190,21 @@ function setupForm() {
 
 function loginForm() {
   return `<form class="auth-form" data-login novalidate>
-    <div class="auth-brand"><span class="brand-mark">E1</span><div><b>Eclesia One</b><small>Login seguro</small></div></div>
-    <h2>Entrar</h2>
-    <p class="sub">Use o e-mail e a senha fornecidos pela administração da sua igreja.</p>
+    <header class="auth-brand">
+      <span class="brand-mark">E1</span>
+      <div><b>Eclesia One</b><small>Entrar na sua igreja</small></div>
+    </header>
+    <p class="sub">Acesse com o e-mail e a senha entregues pela administração da sua igreja. O cadastro de novas igrejas é controlado pelo administrador da rede.</p>
     <div class="field"><label for="login-email">E-mail</label><input class="input" id="login-email" name="email" type="email" autocomplete="username" placeholder="seu.nome@igreja.org" required /></div>
     <div class="field"><label for="login-pass">Senha</label><input class="input" id="login-pass" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required /></div>
     <div class="field-err" data-err hidden></div>
     <button class="btn btn-primary btn-block" type="submit" data-submit>${icon('logout')} Entrar</button>
-    <div class="row mt-2" style="justify-content:space-between">
-      <button type="button" class="btn btn-sm btn-ghost" data-open-signup>${icon('plus')} Criar minha igreja</button>
-      <button type="button" class="btn btn-sm btn-ghost" data-open-login hidden>${icon('user')} Já tenho conta</button>
-    </div>
-  </form>
-  <div data-signup hidden></div>`;
-}
-
-function signupForm() {
-  return `<form class="auth-form" data-signup-form novalidate>
-    <h2>Criar minha igreja</h2>
-    <p class="small muted">Cria uma igreja nova com um usuário <b>Pastor ADM</b> (administrador dessa igreja).
-      O isolamento é garantido no servidor: nenhuma outra igreja acessa estes dados.</p>
-    <div class="field"><label>Nome da igreja</label><input class="input" name="church_name" required /></div>
-    <div class="g-2">
-      <div class="field"><label>Cidade</label><input class="input" name="city" /></div>
-      <div class="field"><label>UF</label><input class="input" name="state" maxlength="2" /></div>
-    </div>
-    <div class="field"><label>Seu nome</label><input class="input" name="name" required /></div>
-    <div class="field"><label>Seu e-mail</label><input class="input" name="email" type="email" required /></div>
-    <div class="field"><label>Senha (mínimo 8 caracteres)</label><input class="input" name="password" type="password" required /></div>
-    <div class="field-err" data-err hidden></div>
-    <button class="btn btn-primary btn-block" type="submit" data-submit>${icon('plus')} Criar igreja e entrar</button>
+    <div class="divider">hierarquia fechada</div>
+    <p class="hint">Cada igreja possui ambiente isolado no servidor. Apenas o administrador da rede cadastra novas igrejas; o Pastor ADM de cada igreja cadastra sua própria equipe.</p>
   </form>`;
 }
+
+// signupForm removido: auto-cadastro público está desativado (hierarquia fechada).
 
 async function submitAccess(root, form, endpoint, labels) {
   const err = form.querySelector('[data-err]');
@@ -246,22 +235,6 @@ async function submitAccess(root, form, endpoint, labels) {
 function wireLogin(root, panel, status) {
   const form = panel.querySelector('[data-login]');
   form.addEventListener('submit', (ev) => { ev.preventDefault(); submitAccess(root, form, '/api/auth/login', { busy: 'Entrando…', ok: 'Bem-vindo' }); });
-  const signupBox = panel.querySelector('[data-signup]');
-  const toSignup = panel.querySelector('[data-open-signup]');
-  const toLogin = panel.querySelector('[data-open-login]');
-  if (!status.signup_enabled) toSignup.hidden = true;
-  toSignup.addEventListener('click', () => {
-    if (!signupBox.innerHTML) {
-      signupBox.innerHTML = signupForm();
-      signupBox.querySelector('[data-signup-form]').addEventListener('submit', (ev) => {
-        ev.preventDefault();
-        submitAccess(root, signupBox.querySelector('[data-signup-form]'), '/api/signup', { busy: 'Criando igreja…', ok: 'Igreja criada' });
-      });
-    }
-    signupBox.hidden = false; form.hidden = true; toSignup.hidden = true; toLogin.hidden = false;
-    signupBox.querySelector('input')?.focus();
-  });
-  toLogin.addEventListener('click', () => { signupBox.hidden = true; form.hidden = false; toSignup.hidden = !status.signup_enabled; toLogin.hidden = true; });
   setTimeout(() => panel.querySelector('#login-email')?.focus(), 60);
 }
 

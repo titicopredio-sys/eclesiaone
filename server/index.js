@@ -17,6 +17,7 @@ import { registerAccessRoutes } from './api-access.js';
 import { registerDataRoutes } from './api-data.js';
 import { registerMetaRoutes } from './api-meta.js';
 import { registerOpsRoutes } from './api-ops.js';
+import { seedSuperadmin } from './seed-superadmin.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -28,15 +29,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'eclesia-one-dev-secret';
 
 process.on('warning', (w) => { if (w.name !== 'ExperimentalWarning') console.warn(w); });
 
-/* --------------------------------------------------------------- banco */
+/* --------------------------------------------------------------- banco + superadmin seedado */
 const dbFile = process.env.DB_FILE || path.join(ROOT, 'data', 'eclesia.db');
 openDatabase(dbFile);
+// Hierarquia fechada: garante o superadmin mestre (Thiago) sempre presente ao subir o servidor.
+try { seedSuperadmin({ quiet: true }); } catch (e) { console.error('[seed-superadmin] falha:', e.message); }
 
 /* -------------------------------------------------------------- router */
 const router = createRouter();
-// Rotas especializadas primeiro: garantem que caminhos reservados
-// (ex.: /api/cells/panel, /api/reports/:kind, /api/eventos/checkin) não sejam
-// capturados pelo CRUD genérico de recursos.
 registerAccessRoutes(router);
 registerDataRoutes(router);
 registerMetaRoutes(router);
@@ -54,8 +54,6 @@ const MIME = {
 };
 
 function serveStatic(req, res, pathname) {
-  // Asset com extensao conhecida e arquivo ausente nunca deve receber o shell SPA:
-  // responder HTML para /js/*.js faria o navegador bloquear o modulo (MIME text/html).
   if (/\.(js|mjs|css|json|webmanifest|svg|png|jpg|jpeg|ico|woff2)$/i.test(pathname)) {
     const abs = path.join(PUBLIC_DIR, pathname.replace(/^\/+/, ''));
     if (!fs.existsSync(abs)) {
@@ -69,99 +67,55 @@ function serveStatic(req, res, pathname) {
   const filePath = path.join(PUBLIC_DIR, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
   if (!filePath.startsWith(PUBLIC_DIR)) return json(res, 403, { error: 'Acesso negado.' });
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    // SPA fallback: qualquer rota desconhecida entrega o app
-    const index = path.join(PUBLIC_DIR, 'index.html');
-    if (!fs.existsSync(index)) return json(res, 404, { error: 'Recurso não encontrado.' });
-    const html = fs.readFileSync(index);
-    res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Length': html.length, 'Cache-Control': 'no-cache' });
-    return res.end(html);
+    // SPA fallback: qualquer rota desconhecida entrega o shell.
+    const html = path.join(PUBLIC_DIR, 'index.html');
+    res.writeHead(200, { 'Content-Type': MIME['.html'] });
+    return fs.createReadStream(html).pipe(res);
   }
   const ext = path.extname(filePath).toLowerCase();
-  const buf = fs.readFileSync(filePath);
-  const isHtml = ext === '.html';
-  res.writeHead(200, {
-    'Content-Type': MIME[ext] || 'application/octet-stream',
-    'Content-Length': buf.length,
-    'Cache-Control': isHtml || ext === '.js' || ext === '.css' || ext === '.webmanifest' ? 'no-cache' : 'public, max-age=86400',
-    'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'X-Frame-Options': 'SAMEORIGIN',
-  });
-  res.end(buf);
+  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+  fs.createReadStream(filePath).pipe(res);
 }
 
-async function readBody(req, limit = 2 * 1024 * 1024) {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks = [];
-    req.on('data', (c) => {
-      size += c.length;
-      if (size > limit) { reject(Object.assign(new Error('Payload muito grande.'), { status: 413 })); req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      const raw = Buffer.concat(chunks).toString('utf8');
-      if (!raw) return resolve({});
-      const ct = String(req.headers['content-type'] || '');
-      if (ct.includes('application/json')) {
-        try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(Object.assign(new Error('JSON inválido no corpo da requisição.'), { status: 400 })); }
-      } else if (ct.includes('application/x-www-form-urlencoded')) {
-        resolve(Object.fromEntries(new URLSearchParams(raw)));
-      } else {
-        try { resolve(JSON.parse(raw)); } catch { resolve({ _raw: raw }); }
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
+/* -------------------------------------------------------------- servidor HTTP */
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = url.pathname;
-
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-
-  if (!pathname.startsWith('/api/')) return serveStatic(req, res, pathname);
-
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
   try {
-    const route = router.match(req.method, pathname);
-    if (!route) {
-      const allowed = [...new Set(router.allowedMethods(pathname))];
-      return json(res, allowed.length ? 405 : 404, {
-        error: allowed.length ? `Método ${req.method} não permitido nesta rota.` : 'Rota de API não encontrada.',
-        allowed,
-      });
-    }
-    req.query = Object.fromEntries(url.searchParams);
-    req.params = route.params;
-    req.body = ['POST', 'PUT', 'PATCH'].includes(req.method) ? await readBody(req) : {};
-    req.ip = ip;
+    const url = new URL(req.url, `http://${req.headers.host || HOST + ':' + PORT}`);
+    const pathname = url.pathname;
+    req.query = Object.fromEntries(url.searchParams.entries());
+    req.ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+    let body = Buffer.alloc(0);
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      body = Buffer.concat(chunks);
+      try { req.body = body.length ? JSON.parse(body.toString('utf8')) : {}; }
+      catch { req.body = {}; }
+    } else { req.body = {}; }
 
-    // autenticacao
-    const header = String(req.headers.authorization || '');
-    const bearer = header.startsWith('Bearer ') ? header.slice(7) : null;
-    const token = bearer || (pathname.startsWith('/api/qr') ? null : null);
-    let user = null;
-    if (token) {
-      const payload = verifyToken(token, JWT_SECRET);
-      if (payload) {
-        const row = one(
-          `SELECT u.*, c.name AS church_name FROM users u LEFT JOIN churches c ON c.id = u.church_id
-           WHERE u.id = ? AND u.active = 1 AND u.deleted_at IS NULL`, [payload.sub]
-        );
-        if (row) user = hydrateUser(row);
+    if (pathname.startsWith('/api/')) {
+      const route = router.match(req.method, pathname);
+      if (!route) return json(res, 404, { error: 'Endpoint não encontrado.' });
+      let user = null;
+      const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (token) {
+        const payload = verifyToken(token, JWT_SECRET);
+        if (payload) {
+          const row = one(
+            `SELECT u.*, c.name AS church_name FROM users u LEFT JOIN churches c ON c.id = u.church_id
+             WHERE u.id = ? AND u.active = 1 AND u.deleted_at IS NULL`, [payload.sub]
+          );
+          if (row) user = hydrateUser(row);
+        }
       }
+      await route.handler(req, res, { user, params: route.params, ip: req.ip });
+    } else {
+      serveStatic(req, res, pathname);
     }
-    await route.handler(req, res, { user, params: route.params, ip });
   } catch (err) {
     const status = err.status || 500;
-    // Log tecnico interno; usuario final recebe mensagem amigavel.
-    console.error(`[ERRO ${status}] ${req.method} ${pathname} ::`, err.message);
+    console.error(`[ERRO ${status}] ${req.method} ${req.url} ::`, err.message);
     if (!res.headersSent) {
       json(res, status, {
         error: status === 500 ? 'Não foi possível concluir a operação. A equipe técnica registrou o ocorrido.' : err.message,
@@ -169,7 +123,7 @@ const server = http.createServer(async (req, res) => {
     }
   } finally {
     if (process.env.LOG_REQUESTS !== 'false') {
-      console.log(`${req.method} ${pathname} -> ${res.statusCode} (${Date.now() - started}ms)`);
+      console.log(`${req.method} ${req.url} -> ${res.statusCode} (${Date.now() - started}ms)`);
     }
   }
 });
@@ -177,7 +131,9 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`\n  Eclesia One — Centro de Comando Digital da Igreja`);
   console.log(`  Servidor ativo em http://localhost:${PORT}`);
-  console.log(`  Banco de dados: ${dbFile}\n`);
+  console.log(`  Banco de dados: ${dbFile}`);
+  console.log(`  Hierarquia: super_admin (Administrador da Rede) → pastor_adm → equipe`);
+  console.log(`  Auto-cadastro público: DESATIVADO\n`);
 });
 
 export { server, router };

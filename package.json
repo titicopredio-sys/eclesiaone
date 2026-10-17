@@ -1,6 +1,6 @@
 {
   "name": "eclesia-one",
-  "version": "3.0.0",
+  "version": "3.2.0",
   "description": "Eclesia One - Centro de Comando Digital da Igreja: plataforma integrada de gestao eclesiastica (pessoas, celulas, pastoral, financeiro, operacao, comunicacao e inteligencia).",
   "type": "module",
   "private": true,
@@ -20,9 +20,7 @@
     "ver": "node -e \"console.log(require('./package.json').version)\"",
     "master": "node server/provision-master.js"
   },
-  "dependencies": {
-    "firebase": "^13.0.0"
-  },
+  "dependencies": {},
   "license": "PROPRIETARY",
   "devDependencies": {
     "jsdom": "^30.1.1"

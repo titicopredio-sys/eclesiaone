@@ -1,24 +1,20 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+/* =============================================================================
+   Eclesia One — configuração do endereço da API
+   -----------------------------------------------------------------------------
+   Para rodar com o servidor no PRÓPRIO endereço (npm start, Docker, VPS):
+   deixe VAZIO — é o modo padrão, funciona sem ajuste.
 
-// Configuração do endereço da API do Sistema Eclesia
-// Se o seu servidor backend (pasta server) estiver publicado num serviço externo (ex: Render, Railway, Fly.io),
-// substitua o valor abaixo pelo URL completo (ex: "https://minha-api-eclesia.onrender.com").
-window.ECLESIA_API_BASE = window.location.origin;
+   Para hospedar a INTERFACE em serviço estático (Firebase Hosting, Netlify,
+   S3/CloudFront) e a API em outro servidor, informe o endereço da API:
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCiUfUI888vYzvFfMNszoNMmnNwULh0bQ8",
-  authDomain: "eclesiaon.firebaseapp.com",
-  projectId: "eclesiaon",
-  storageBucket: "eclesiaon.firebasestorage.app",
-  messagingSenderId: "994799265423",
-  appId: "1:994799265423:web:bf64d2da1d36bcd26ab2fa"
-};
+     window.ECLESIA_API_BASE = 'https://api.suaigreja.org';
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+   O servidor responde com os cabeçalhos CORS necessários. O endereço da API
+   é uma decisão sua: qualquer hospedagem que rode Node 22.5+ serve.
 
-export { app, firebaseConfig };
+   ECLESIA_STATIC_DEMO é ligado automaticamente pelo build de demonstração
+   (npm run build:static): a interface funciona sem servidor, com o retrato de
+   dados em /api-snapshot.json, somente leitura.
+   ========================================================================== */
+window.ECLESIA_API_BASE = '';
+window.ECLESIA_STATIC_DEMO = window.ECLESIA_STATIC_DEMO || false;

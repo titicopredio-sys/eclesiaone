@@ -1,7 +1,5 @@
 {
   "projects": {
-    "default": "eclesiaon"
-  },
-  "targets": {},
-  "etags": {}
+    "default": "SEU-PROJETO-FIREBASE"
+  }
 }
