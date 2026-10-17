@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Eclesia One — Visão da Igreja</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f4f5fa;color:#15161f;padding:22px 26px 40px}
+  .top{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#7c73ff);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:19px}
+  .brand strong{font-size:19px;letter-spacing:-.2px}
+  .brand span{display:block;font-size:12px;color:#616379}
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12.5px;color:#4a4c62}
+  .pill{background:#fff;border:1px solid #e4e5ef;border-radius:999px;padding:6px 12px;font-weight:600;color:#3d3f55}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#6b6d85;margin:22px 0 10px}
+  .grid{display:grid;gap:12px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .kpi{background:#fff;border:1px solid #e7e8f1;border-radius:14px;padding:13px 15px;box-shadow:0 1px 2px rgba(20,20,45,.04)}
+  .kpi.acc{border-left:3px solid #4f46e5}
+  .kpi.ok{border-left:3px solid #16a34a}
+  .kpi.warn{border-left:3px solid #d97706}
+  .kpi.danger{border-left:3px solid #dc2626}
+  .k-label{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:#71738c;font-weight:600}
+  .k-value{display:block;font-size:22px;margin-top:4px;letter-spacing:-.4px}
+  .k-sub{display:block;font-size:11.5px;color:#83859b;margin-top:3px}
+  .card{background:#fff;border:1px solid #e7e8f1;border-radius:14px;padding:16px}
+  .alert{border-radius:12px;padding:11px 14px;font-size:13px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+  .alert.danger{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  .alert.warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+  .alert.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+  .bars{display:flex;gap:14px;align-items:flex-end;height:132px;margin-top:14px}
+  .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+  .bar-pair{display:flex;gap:4px;align-items:flex-end;height:100%}
+  .bar{width:17px;border-radius:4px 4px 0 0}
+  .bar.in{background:#4f46e5}.bar.out{background:#f59e0b}
+  .bar-lbl{font-size:11px;color:#7b7d94}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#74768d;padding:8px 6px;border-bottom:1px solid #e7e8f1}
+  td{padding:9px 6px;border-bottom:1px solid #f0f1f7}
+  .badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600}
+  .badge.ok{background:#dcfce7;color:#166534}.badge.info{background:#e0e7ff;color:#3730a3}
+  .badge.warn{background:#fef3c7;color:#92400e}.badge.neutral{background:#eef0f5;color:#4b4d63}
+  .two{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+  .legend{display:flex;gap:14px;font-size:12px;color:#63657c;margin-top:10px}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block;margin-right:6px}
+  .foot{margin-top:26px;font-size:11.5px;color:#8b8da3;text-align:center}
+</style></head><body>
+  <div class="top">
+    <div class="logo">E1</div>
+    <div class="brand"><strong>Eclesia One</strong><span>Centro de Comando Digital da Igreja</span></div>
+    <div class="top-right">
+      <span class="pill">Igreja Demonstração Eclesia One (DEMONSTRAÇÃO)</span>
+      <span>Administrador do Sistema · Super Admin</span>
+    </div>
+  </div>
+
+  <h2>Visão da Igreja</h2>
+  <div class="grid g4">
+    
+  <div class="kpi acc">
+    <span class="k-label">Pessoas</span>
+    <strong class="k-value">180</strong>
+    <span class="k-sub">148 ativas · 8 inativas</span>
+  </div>
+    
+  <div class="kpi acc">
+    <span class="k-label">Células</span>
+    <strong class="k-value">8</strong>
+    <span class="k-sub">8 ativas · média 12 por reunião</span>
+  </div>
+    
+  <div class="kpi ">
+    <span class="k-label">Famílias</span>
+    <strong class="k-value">34</strong>
+    <span class="k-sub">26 líderes cadastrados</span>
+  </div>
+    
+  <div class="kpi warn">
+    <span class="k-label">Visitantes</span>
+    <strong class="k-value">18</strong>
+    <span class="k-sub">0 novos membros no mês</span>
+  </div>
+  </div>
+
+  <h2>Financeiro</h2>
+  
+  <div class="grid g4">
+    
+  <div class="kpi ok">
+    <span class="k-label">Saldo atual</span>
+    <strong class="k-value">R$ 135.488,00</strong>
+    <span class="k-sub">5 conta(s) bancária(s)</span>
+  </div>
+    
+  <div class="kpi danger">
+    <span class="k-label">A pagar</span>
+    <strong class="k-value">R$ 62.703,00</strong>
+    <span class="k-sub">3 conta(s) vencida(s)</span>
+  </div>
+    
+  <div class="kpi ">
+    <span class="k-label">A receber</span>
+    <strong class="k-value">R$ 54.853,00</strong>
+    <span class="k-sub">Dízimos no mês: R$ 36.250,00</span>
+  </div>
+    
+  <div class="kpi ok">
+    <span class="k-label">Saldo projetado (30d)</span>
+    <strong class="k-value">R$ 110.925,00</strong>
+    <span class="k-sub">Resultado do mês: R$ 6.835,00</span>
+  </div>
+  </div>
+
+  <h2>Central de Atenção</h2>
+  <div class="two">
+    <div>
+      <div class="alert danger"><b>3 conta(s) vencida(s)</b><span>Total em atraso: R$ 7.730,00</span></div><div class="alert danger"><b>2 tarefa(s) atrasada(s)</b><span>Prazo já encerrado.</span></div><div class="alert warning"><b>10 conta(s) vencem em até 7 dias</b><span>R$ 13.525,00</span></div><div class="alert warning"><b>3 documento(s) vencendo</b><span>Validade em até 45 dias.</span></div><div class="alert warning"><b>10 manutenção(ões) pendente(s)</b><span>Itens aguardando conclusão.</span></div>
+    </div>
+    <div class="card">
+      <strong style="font-size:13.5px">Entradas x Saídas — últimos 6 meses</strong>
+      <div class="bars">
+        <div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:83.35721872839777%"></div>
+            <div class="bar out" style="height:72.45367638380739%"></div>
+          </div><span class="bar-lbl">Abr/26</span></div><div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:86.99903896410447%"></div>
+            <div class="bar out" style="height:74.99620643725447%"></div>
+          </div><span class="bar-lbl">Mai/26</span></div><div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:75.21033197889093%"></div>
+            <div class="bar out" style="height:80.1689399942675%"></div>
+          </div><span class="bar-lbl">Jun/26</span></div><div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:94.29953971438687%"></div>
+            <div class="bar out" style="height:82.35740419146532%"></div>
+          </div><span class="bar-lbl">Jul/26</span></div><div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:100%"></div>
+            <div class="bar out" style="height:84.38906779518133%"></div>
+          </div><span class="bar-lbl">Ago/26</span></div><div class="bar-wrap">
+          <div class="bar-pair">
+            <div class="bar in" style="height:91.02021547436394%"></div>
+            <div class="bar out" style="height:79.49621486739392%"></div>
+          </div><span class="bar-lbl">Set/26</span></div>
+      </div>
+      <div class="legend"><span><i class="dot" style="background:#4f46e5"></i>Entradas</span><span><i class="dot" style="background:#f59e0b"></i>Saídas</span></div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:22px">Ministérios e Operação</h2>
+  <div class="grid g4">
+    
+  <div class="kpi ">
+    <span class="k-label">Ministérios</span>
+    <strong class="k-value">11</strong>
+    <span class="k-sub">11 ativos</span>
+  </div>
+    
+  <div class="kpi ">
+    <span class="k-label">Voluntários</span>
+    <strong class="k-value">66</strong>
+    <span class="k-sub">5 classes de EBD</span>
+  </div>
+    
+  <div class="kpi warn">
+    <span class="k-label">Escalas pendentes</span>
+    <strong class="k-value">15</strong>
+    <span class="k-sub">aguardando confirmação</span>
+  </div>
+    
+  <div class="kpi warn">
+    <span class="k-label">Pendências abertas</span>
+    <strong class="k-value">72</strong>
+    <span class="k-sub">10 grupo(s) de alerta</span>
+  </div>
+  </div>
+
+  <h2 style="margin-top:22px">Pessoas — amostra do cadastro único</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Nome</th><th>Situação</th><th>Telefone</th><th>Bairro</th><th>Cidade</th></tr></thead>
+      <tbody>
+        <tr><td>Alexandre Barbosa</td>
+          <td><span class="badge ok">ativo</span></td>
+          <td>(19) 95727-3715</td><td>Bela Vista</td><td>Campinas</td></tr><tr><td>Alexandre Carvalho</td>
+          <td><span class="badge ok">ativo</span></td>
+          <td>(19) 99170-8610</td><td>Parque das Flores</td><td>São Paulo</td></tr><tr><td>Alexandre Lopes</td>
+          <td><span class="badge warn">em_acompanhamento</span></td>
+          <td>(19) 95971-9192</td><td>Morada do Sol</td><td>Belo Horizonte</td></tr><tr><td>Ana Carvalho</td>
+          <td><span class="badge ok">ativo</span></td>
+          <td>(19) 91741-5514</td><td>Morada do Sol</td><td>Campinas</td></tr><tr><td>Ana Evangelista Santos</td>
+          <td><span class="badge ok">ativo</span></td>
+          <td>(19) 91671-7675</td><td>Alto da Serra</td><td>São Paulo</td></tr><tr><td>André Correia</td>
+          <td><span class="badge info">visitante</span></td>
+          <td>(19) 91784-1615</td><td>Bela Vista</td><td>São Paulo</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 style="margin-top:22px">Células / Pequenos Grupos</h2>
+  <div class="card">
+    <table>
+      <thead><tr><th>Célula</th><th>Líder</th><th>Membros</th><th>Reuniões</th><th>Média presença</th><th>Última reunião</th><th>Relatório</th></tr></thead>
+      <tbody>
+        <tr><td>Célula Betel</td><td>Otávio Correia Costa</td><td>9</td>
+          <td>14</td><td>9,9</td><td>2026-09-29</td>
+          <td><span class="badge ok">em dia</span></td></tr><tr><td>Célula Casa de Deus</td><td>Michele Gonçalves</td><td>11</td>
+          <td>14</td><td>10,4</td><td>2026-09-28</td>
+          <td><span class="badge ok">em dia</span></td></tr><tr><td>Célula Ebenézer</td><td>Mateus Cardoso</td><td>16</td>
+          <td>14</td><td>15,1</td><td>2026-09-28</td>
+          <td><span class="badge ok">em dia</span></td></tr><tr><td>Célula Filadélfia</td><td>Leandro Andrade</td><td>16</td>
+          <td>14</td><td>15</td><td>2026-09-29</td>
+          <td><span class="badge ok">em dia</span></td></tr><tr><td>Célula Getsêmani</td><td>Yara Gonçalves</td><td>15</td>
+          <td>14</td><td>13,4</td><td>2026-09-27</td>
+          <td><span class="badge ok">em dia</span></td></tr><tr><td>Célula Monte Sião</td><td>Karina Apóstolo</td><td>10</td>
+          <td>14</td><td>8,9</td><td>2026-09-28</td>
+          <td><span class="badge ok">em dia</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="foot">Eclesia One 1.0.0 — captura gerada em 29/09/2026, 17:08:03 a partir da API em execução · dados de demonstração identificados</div>
+</body></html>
