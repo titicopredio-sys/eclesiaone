@@ -115,14 +115,14 @@ function authHero() {
     </header>
     <main>
       <div class="eyebrow">Plataforma de gestão eclesiástica</div>
-      <h1>Cada igreja, um ambiente único.<br/>Cada pastor, a sua rede.</h1>
-      <p class="lead">Pessoas, famílias, células, ministérios, pastoral, financeiro e operação reunidos em um só lugar, com o princípio do <i>isolamento por igreja</i>: tudo o que você registra aqui permanece na sua igreja.</p>
+      <h1>Uma gestão eficiente fortalece a missão da Igreja.<br/>Ministérios conectado. Um só propósito.</h1>
+      <p class="lead">O Eclesia One reúne em um só sistema os recursos necessários para administrar, acompanhar e desenvolver a vida da sua igreja com organização, segurança e propósito.</p>
       <ul class="auth-perks">
-        <li>${icon('check')}<span>Visão executiva na primeira tela</span></li>
-        <li>${icon('check')}<span>Permissões verificadas no servidor (RBAC em 26 módulos)</span></li>
-        <li>${icon('check')}<span>Financeiro com fluxo de caixa projetado</span></li>
-        <li>${icon('check')}<span>Cada Pastor ADM cria a própria equipe — secretários, líderes, professores, membros</span></li>
-        <li>${icon('check')}<span>Auditoria registrando autor, data e operação de cada movimento</span></li>
+        <li>${icon('check')}<span>Sua igreja, mais conectada</span></li>
+        <li>${icon('check')}<span>Ministérios e lideranças em um só lugar </span></li>
+        <li>${icon('check')}<span>Informações e recursos integrados para apoiar as decisões</span></li>
+        <li>${icon('check')}<span>Gestão financeira e administrativa</span></li>
+        <li>${icon('check')}<span>Uma visão integrada da sua igreja</span></li>
       </ul>
     </main>
     <footer class="verse">
