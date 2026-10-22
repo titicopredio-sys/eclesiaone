@@ -18,6 +18,7 @@ import { authenticate, hydrateUser, permissionMatrix, audit, isChurchAdmin, CHUR
 import { json, errorMessage } from './api-core.js';
 import { createChurch, createUser, emailTaken, tenantStats, churchById, ensureChurchRoles, generatePassword } from './tenancy.js';
 
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STAFF_BLOCKED = new Set(['super_admin', 'pastor_adm']); // apenas super_admin cria pastor_adm
 
@@ -156,11 +157,19 @@ export function registerAccessRoutes(router) {
       : ctx.user.church_id;
     const rows = all(
       `SELECT u.id, u.name, u.email, u.role, u.person_id, u.phone, u.active, u.require_reset, u.last_login, u.created_at,
-              (SELECT name FROM roles WHERE church_id = u.church_id AND slug = u.role AND deleted_at IS NULL) AS role_name
+              (SELECT name FROM roles WHERE church_id = u.church_id AND slug = u.role AND deleted_at IS NULL) AS role_name,
+              (SELECT name FROM churches WHERE id = u.church_id AND deleted_at IS NULL) AS church_name
        FROM users u WHERE u.church_id = ? AND u.deleted_at IS NULL ORDER BY u.role, u.name`,
       [targetChurchId]
     );
-    return json(res, 200, { data: rows, church_id: targetChurchId, available_roles: availableRoles(targetChurchId) });
+    return json(res, 200, {
+      data: rows,
+      church_id: targetChurchId,
+      church_name: one('SELECT name FROM churches WHERE id = ? AND deleted_at IS NULL', [targetChurchId])?.name || null,
+      available_roles: availableRoles(targetChurchId),
+      blocked_roles: ['super_admin', 'pastor_adm'],
+      self_id: ctx.user.id,
+    });
   }));
 
   router.add('POST', '/api/team', authed(async (req, res, ctx) => {
@@ -171,7 +180,6 @@ export function registerAccessRoutes(router) {
     if (!EMAIL_RE.test(email)) return json(res, 422, { error: 'Informe um e-mail válido.' });
     if (emailTaken(email)) return json(res, 409, { error: 'Este e-mail já está cadastrado no sistema.' });
     if (!body.password || String(body.password).length < 8) return json(res, 422, { error: 'A senha inicial deve ter ao menos 8 caracteres.' });
-    // pastor_adm e super_admin NÃO podem ser criados pela equipe — apenas super_admin cria pastor_adm via /api/churches.
     const targetChurchId = ctx.user.role === 'super_admin'
       ? (body.church_id ? Number(body.church_id) : ctx.user.church_id)
       : ctx.user.church_id;
@@ -182,7 +190,6 @@ export function registerAccessRoutes(router) {
     }
     const roleRow = roleInChurch(targetChurchId, role);
     if (!roleRow) return json(res, 422, { error: 'Perfil não existe nesta igreja.' });
-    const perms = normalizePermissions(roleRow, body.permissions);
     const newId = transaction(() => {
       const id = createUser({
         churchId: targetChurchId,
@@ -192,13 +199,11 @@ export function registerAccessRoutes(router) {
         role,
         phone: body.phone || null,
       });
-      // Grava permissões efetivas para refletir exatamente o que o administrador liberou.
-      run(`UPDATE users SET require_reset = 1, updated_at = ? WHERE id = ?`, [isoNow(), id]);
-      // As permissões já vêm do role base. Caso o admin tenha customizado, persistimos no role base (override por usuário não é permitido aqui).
+      run(`UPDATE users SET require_reset = ?, updated_at = ? WHERE id = ?`, [body.require_reset ? 1 : 0, isoNow(), id]);
       return id;
     });
-    audit({ churchId: targetChurchId, user: ctx.user, action: 'criar_usuario', module: 'configuracoes', resource: 'users', recordId: newId, after: { name: body.name, email, role }, ip: req.ip });
-    return json(res, 201, { id: newId, name: body.name, email, role, message: 'Usuário criado. Oriente-o(a) a trocar a senha no primeiro acesso.' });
+    audit({ churchId: targetChurchId, user: ctx.user, action: 'criar_usuario', module: 'configuracoes', resource: 'users', recordId: newId, after: { name: body.name, email, role, church_id: targetChurchId }, ip: req.ip });
+    return json(res, 201, { id: newId, name: body.name, email, role, church_id: targetChurchId, message: 'Usuário criado. Oriente-o(a) a trocar a senha no primeiro acesso.' });
   }));
 
   router.add('POST', '/api/team/:id', authed(async (req, res, ctx) => {
@@ -261,10 +266,18 @@ export function registerAccessRoutes(router) {
     return json(res, 200, { message: 'Usuário desativado. Os registros e o histórico continuam preservados (soft delete).' });
   }));
 
-  /* ============================================================ LISTAGEM DE PERFIS DISPONÍVEIS */
+  /* ============================================================ LISTAGEM DE PERFIS DISPONÍVEIS (P/ FORM DE USUARIO) */
   router.add('GET', '/api/team/roles', authed(async (req, res, ctx) => {
+    if (!canManageStaff(ctx.user)) return json(res, 403, { error: 'Acesso restrito ao administrador.' });
     const churchId = ctx.user.role === 'super_admin' && req.query.church_id ? Number(req.query.church_id) : ctx.user.church_id;
-    return json(res, 200, { data: availableRoles(churchId) });
+    return json(res, 200, { data: availableRoles(churchId), blocked: Array.from(STAFF_BLOCKED) });
+  }));
+
+  /* ============================================================ LISTA DE IGREJAS (apenas super_admin) — para o selector de igreja */
+  router.add('GET', '/api/churches/options', authed(async (req, res, ctx) => {
+    if (ctx.user.role !== 'super_admin') return json(res, 403, { error: 'Acesso restrito ao administrador geral.' });
+    const rows = all('SELECT id, name, city, state FROM churches WHERE deleted_at IS NULL ORDER BY name');
+    return json(res, 200, { data: rows.map((r) => ({ id: r.id, label: `${r.name}${r.city ? ' — ' + r.city + '/' + (r.state || '') : ''}` })) });
   }));
 }
 

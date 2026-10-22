@@ -283,7 +283,9 @@ export function fieldInput(field, value, { resource } = {}) {
     case 'boolean':
       return `<div class="field"><label>&nbsp;</label><label class="check"><input type="checkbox" id="${id}" name="${field.name}" ${val ? 'checked' : ''}/> ${esc(field.label)}</label></div>`;
     case 'enum':
-      control = `<select class="select" id="${id}" name="${field.name}">${(field.options || []).map((o) => `<option value="${esc(o.value)}" ${String(val) === String(o.value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+      control = field.options_query
+        ? `<select class="select" id="${id}" name="${field.name}" data-options-query="${esc(field.options_query)}"><option value="">Carregando…</option></select>`
+        : `<select class="select" id="${id}" name="${field.name}">${(field.options || []).map((o) => `<option value="${esc(o.value)}" ${String(val) === String(o.value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
       break;
     case 'ref':
       control = `<select class="select" id="${id}" name="${field.name}" data-ref="${field.ref}"><option value="">Carregando…</option></select>`;
@@ -323,39 +325,90 @@ export async function hydrateRefFields(scope) {
       if (current && !data.some((o) => String(o.id) === String(current))) sel.value = '';
     } catch { sel.innerHTML = '<option value="">Erro ao carregar opções</option>'; }
   }));
+  // Selects dinamicos via options_query (ex.: lista de perfis de usuario = /api/team/roles)
+  const dyn = [...scope.querySelectorAll('select[data-options-query]')];
+  await Promise.all(dyn.map(async (sel) => {
+    const url = sel.dataset.optionsQuery;
+    const current = sel.dataset.value || sel.value;
+    try {
+      const { data, blocked } = await api(url);
+      // Se existir lista de blocked_roles, esconde os perfis restritos (super_admin / pastor_adm)
+      const filtered = blocked ? data.filter((o) => !blocked.includes(o.value || o.slug)) : data;
+      sel.innerHTML = `<option value="">— Selecione —</option>` + filtered.map((o) => `<option value="${o.value || o.slug}" ${String(current) === String(o.value || o.slug) ? 'selected' : ''}>${esc(o.label || o.name)}</option>`).join('');
+      if (current && !filtered.some((o) => String(o.value || o.slug) === String(current))) sel.value = '';
+    } catch { sel.innerHTML = '<option value="">Erro ao carregar opções</option>'; }
+  }));
+  // Select de igreja / filiais (apenas super_admin)
+  const churchSel = scope.querySelector('[name="church_id"]');
+  if (churchSel) {
+    try {
+      const { data } = await api('/api/churches/options');
+      churchSel.innerHTML = `<option value="">— Selecione a igreja —</option>` + data.map((o) => `<option value="${o.id}" ${String(churchSel.value) === String(o.id) ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+    } catch { churchSel.innerHTML = '<option value="">Erro ao carregar igrejas</option>'; }
+  }
 }
 
 /** Formulário gerado automaticamente a partir do metadado do recurso. */
 export function buildForm(resource, def, row = {}, opts = {}) {
   const groups = opts.groups || null;
   const fields = def.fields.filter((f) => !(opts.exclude || []).includes(f.name));
-  const html = fields.map((f) => {
+  const visibleFields = fields.filter((f) => {
+    // Campos sempre ocultos do formulario (read-only calculados pelo servidor)
+    if (f.read_only_always) return false;
+    return true;
+  });
+  const html = visibleFields.map((f) => {
     const v = row[f.name];
     const isNew = !row.id;
     if (isNew && f.read_only_create) return '';
-    if (f.name.endsWith('_12') || f.name === 'password') return fieldInput(f, '');
+    if (f.name === 'password') return fieldInput(f, '');
     return fieldInput(f, v);
   }).join('');
-  return `<form class="form-grid" data-form novalidate>${html}</form>`;
+  // Acrescenta o campo de senha abaixo da senha-fixada. Para usuarios tambem
+  // exigimos o campo de senha inicial na criacao (min 8 chars) e na edicao
+  // (opcional, para redefinir).
+  let extra = '';
+  if (def.table === 'users') {
+    const isNew = !row.id;
+    extra = `<div class="field"><label for="f_password">Senha${isNew ? ' inicial' : ' (redefinir — deixe em branco para manter)'} <span class="req">${isNew ? '*' : ''}</span></label>
+      <input class="input" id="f_password" name="password" type="password" autocomplete="new-password" placeholder="${isNew ? 'Minimo 8 caracteres' : 'Deixe em branco para manter a senha atual'}" /></div>`;
+  }
+  return `<form class="form-grid" data-form novalidate>${html}${extra}</form>`;
 }
 
 export function collectForm(formEl, def, { partial = false } = {}) {
   const out = {};
   const errors = [];
+  // O campo "password" nao esta em def.fields, mas eh injetado por buildForm para users:
+  const extraPassword = formEl.querySelector('[name="password"]');
+  const passwordValue = extraPassword ? String(extraPassword.value || '') : null;
   for (const f of def.fields) {
+    if (f.read_only_always) continue;
     const el = formEl.querySelector(`[name="${f.name}"]`);
     if (!el || el.disabled) continue;
     let v;
     if (f.type === 'boolean') v = el.checked ? 1 : 0;
     else v = el.value;
     if (f.type === 'number' || f.type === 'money') v = v === '' ? null : Number(v);
-    if (f.type === 'password' && v === '') continue;
     if (f.required && (v === null || v === undefined || String(v).trim() === '')) {
-      errors.push(`O campo "${f.label}" é obrigatório.`);
+      errors.push(`O campo "${f.label}" eh obrigatorio.`);
       continue;
     }
-    if (f.type === 'money' && v !== null && v < 0) { errors.push(`O campo "${f.label}" não pode ser negativo.`); continue; }
+    if (f.type === 'money' && v !== null && v < 0) { errors.push(`O campo "${f.label}" nao pode ser negativo.`); continue; }
     out[f.name] = v === '' ? null : v;
+  }
+  if (def.table === 'users') {
+    const isNew = !formEl.dataset.id;
+    if (isNew) {
+      if (!passwordValue || passwordValue.length < 8) {
+        errors.push('A senha inicial deve ter ao menos 8 caracteres.');
+      } else {
+        out.password = passwordValue;
+      }
+    } else if (passwordValue && passwordValue.length > 0) {
+      if (passwordValue.length < 8) errors.push('A senha deve ter ao menos 8 caracteres quando preenchida.');
+      else out.password = passwordValue;
+    }
   }
   return { data: out, errors };
 }

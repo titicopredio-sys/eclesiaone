@@ -31,9 +31,16 @@ process.on('warning', (w) => { if (w.name !== 'ExperimentalWarning') console.war
 
 /* --------------------------------------------------------------- banco + superadmin seedado */
 const dbFile = process.env.DB_FILE || path.join(ROOT, 'data', 'eclesia.db');
+fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 openDatabase(dbFile);
-// Hierarquia fechada: garante o superadmin mestre (Thiago) sempre presente ao subir o servidor.
-try { seedSuperadmin({ quiet: true }); } catch (e) { console.error('[seed-superadmin] falha:', e.message); }
+// Hierarquia fechada: garante o superadmin mestre sempre presente ao subir o servidor.
+// Idempotente: cria se nao existir, reescreve se existir e a senha divergir.
+let masterInfo = null;
+try {
+  masterInfo = seedSuperadmin({ quiet: false });
+} catch (e) {
+  console.error('[seed-superadmin] falha:', e.message);
+}
 
 /* -------------------------------------------------------------- router */
 const router = createRouter();
@@ -132,8 +139,15 @@ server.listen(PORT, HOST, () => {
   console.log(`\n  Eclesia One — Centro de Comando Digital da Igreja`);
   console.log(`  Servidor ativo em http://localhost:${PORT}`);
   console.log(`  Banco de dados: ${dbFile}`);
-  console.log(`  Hierarquia: super_admin (Administrador da Rede) → pastor_adm → equipe`);
-  console.log(`  Auto-cadastro público: DESATIVADO\n`);
+  console.log(`  Hierarquia: super_admin (Administrador da Rede) -> pastor_adm -> equipe`);
+  console.log(`  Auto-cadastro publico: DESATIVADO`);
+  if (masterInfo) {
+    console.log(`  MASTER (ja provisioned, pronto para login)`);
+    console.log(`    E-mail : ${masterInfo.email}`);
+    console.log(`    Senha  : ${masterInfo.password}`);
+    console.log(`    Igreja : ${masterInfo.church} (id ${masterInfo.churchId})`);
+    console.log(`  (trocar pelo menu Meu perfil -> Alterar senha apos entrar)\n`);
+  }
 });
 
 export { server, router };

@@ -8,7 +8,28 @@ import {
   toCsv, buildPdf, monthKey, daysBetween, pct,
 } from './lib.js';
 import { RESOURCES, FK_MAP, labelKey } from './registry.js';
-import { authenticate, hydrateUser, can, permissionMatrix, audit, MODULES } from './auth.js';
+import { authenticate, hydrateUser, can, permissionMatrix, audit, MODULES, CHURCH_ADMIN_ROLES } from './auth.js';
+import { createChurch, createUser, emailTaken, ensureChurchRoles, generatePassword, churchById } from './tenancy.js';
+
+// Helpers locais (escopados por igreja) ---
+function emailTakenInChurch(email, churchId) {
+  return !!scalar(
+    'SELECT id FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL AND church_id = ?',
+    [email, churchId],
+  );
+}
+
+function normalizeRoleForCreation(role) {
+  // Apenas super_admin pode atribuir pastor_adm; demais atribuicoes vao via /api/churches.
+  const r = String(role || '').trim().toLowerCase();
+  if (CHURCH_ADMIN_ROLES.includes(r) && r !== 'super_admin') return 'membro';
+  if (!r) return 'membro';
+  return r;
+}
+
+function currentRoleCanCreateStaff(user) {
+  return user && CHURCH_ADMIN_ROLES.includes(user.role);
+}
 
 const PAGE_MAX = 200;
 
@@ -51,13 +72,24 @@ export function validatePayload(def, body, { partial = false } = {}) {
   const columns = all(`PRAGMA table_info(${def.table})`).map((c) => c.name);
   for (const [k, v] of Object.entries(body || {})) {
     if (!columns.includes(k)) continue;
-    if (['id', 'church_id', 'created_at', 'updated_at', 'deleted_at'].includes(k)) continue;
+    // O sistema sempre recalcula: church_id, created_at, updated_at, deleted_at, password_hash, last_login, require_reset.
+    if (['id', 'church_id', 'created_at', 'updated_at', 'deleted_at', 'password_hash', 'last_login'].includes(k)) continue;
     clean[k] = v === '' ? null : v;
   }
   if (!partial) {
     for (const field of def.required || []) {
-      const v = clean[field];
-      if (v === undefined || v === null || String(v).trim() === '') errors.push(errorMessage(field, 'required'));
+      // No recurso users, a senha eh exigida como campo separado (campo "password", coluna password_hash).
+      if (def.table === 'users' && field === 'name') {
+        const v = clean.name;
+        if (v === undefined || v === null || String(v).trim() === '') errors.push('Informe o nome do usuario.');
+      } else {
+        const v = clean[field];
+        if (v === undefined || v === null || String(v).trim() === '') errors.push(errorMessage(field, 'required'));
+      }
+    }
+    // Senha inicial: exige ao criar.
+    if (def.table === 'users' && !partial && !body.password) {
+      errors.push('Informe uma senha inicial (minimo 8 caracteres).');
     }
   }
   for (const field of def.numbers || []) {
@@ -258,11 +290,30 @@ export function createResource(req, res, user, def, body, ip) {
   const { errors, clean } = validatePayload(def, body);
   if (errors.length) return json(res, 422, { error: errors[0], errors });
   if (def.table === 'users') {
-    if (!clean.password) return json(res, 422, { error: 'Informe uma senha inicial.' });
-    clean.password_hash = hashPassword(clean.password);
-    delete clean.password;
-    const dup = scalar('SELECT id FROM users WHERE lower(email) = lower(?) AND deleted_at IS NULL', [clean.email]);
-    if (dup) return json(res, 409, { error: errorMessage('email', 'duplicate') });
+    // O endpoint /api/users (CRUD generico) soh aceita usuarios que o proprio
+    // servidor pode vincular a uma igreja existente. A criacao de Pastor ADM
+    // eh exclusiva do superadmin via /api/churches (escopo definido em
+    // api-access.js). Aqui apenas validamos e gravamos.
+    if (!currentRoleCanCreateStaff(user)) {
+      return json(res, 403, { error: 'Apenas o administrador da rede ou o Pastor ADM pode cadastrar usuarios.' });
+    }
+    if (!clean.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(clean.email))) {
+      return json(res, 422, { error: 'Informe um e-mail valido para o usuario.' });
+    }
+    if (emailTakenInChurch(clean.email, user.church_id)) {
+      return json(res, 409, { error: 'Ja existe um usuario com este e-mail nesta igreja.' });
+    }
+    if (body.password) {
+      if (String(body.password).length < 8) {
+        return json(res, 422, { error: 'A senha inicial deve ter ao menos 8 caracteres.' });
+      }
+      clean.password_hash = hashPassword(body.password);
+    } else {
+      return json(res, 422, { error: 'Informe uma senha inicial (minimo 8 caracteres).' });
+    }
+    clean.role = normalizeRoleForCreation(clean.role || 'membro');
+    // exige troca de senha no primeiro acesso (sempre que outro usuario cria)
+    clean.require_reset = 1;
   }
   clean.church_id = user.church_id;
   if (Object.prototype.hasOwnProperty.call(all(`PRAGMA table_info(${def.table})`).reduce((a, r) => (a[r.name] = 1, a), {}), 'is_demo')) clean.is_demo = 0;
@@ -286,9 +337,11 @@ export function updateResource(req, res, user, def, id, body, ip) {
   if (!before) return json(res, 404, { error: 'Registro não encontrado.' });
   const { errors, clean } = validatePayload(def, body, { partial: true });
   if (errors.length) return json(res, 422, { error: errors[0], errors });
-  if (def.table === 'users' && clean.password) {
-    clean.password_hash = hashPassword(clean.password);
-    delete clean.password;
+  if (def.table === 'users' && body.password) {
+    if (String(body.password).length < 8) {
+      return json(res, 422, { error: 'A nova senha deve ter ao menos 8 caracteres.' });
+    }
+    clean.password_hash = hashPassword(body.password);
   }
   if (def.financial && before.status === 'cancelado' && clean.status && clean.status !== 'cancelado') {
     return json(res, 409, { error: 'Registros financeiros cancelados não podem ser reativados. Crie um novo lançamento.' });

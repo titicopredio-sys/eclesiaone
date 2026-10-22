@@ -169,15 +169,27 @@ export async function editRecord(key, def, id, onDone) {
   }
   const m = modal({
     title: isNew ? `Novo${def.label.startsWith('a') ? 'a' : ''} ${def.label}` : `${def.label} #${id}`,
-    subtitle: isNew ? 'Os campos com * são obrigatórios. Apenas o essencial é exigido.' : 'As alterações ficam registradas na auditoria.',
+    subtitle: isNew ? 'Os campos com * sao obrigatorios. Apenas o essencial eh exigido.' : 'As alteracoes ficam registradas na auditoria.',
     size: 'wide',
     body: buildForm(key, def, row),
-    footer: `<span class="small muted left">${isNew ? 'Cadastro único e reutilizável em todos os módulos' : `Atualizado em ${dtTime(row.updated_at)}`}</span>
+    footer: `<span class="small muted left">${isNew ? 'Cadastro unico e reutilizavel em todos os modulos' : `Atualizado em ${dtTime(row.updated_at)}`}</span>
       <button class="btn btn-ghost" data-close>Cancelar</button>
       <button class="btn btn-primary" data-save>${icon('check')} Salvar</button>`,
   });
-  await hydrateRefFields(m.body);
   const formEl = m.body.querySelector('form');
+  formEl.dataset.id = id || '';
+  // Injeta o seletor de igreja LOGO APOS o formulario, mas apenas se for o
+  // recurso "users" E o usuario logado for super_admin. Para demais perfis
+  // e demais tabelas o campo nao aparece.
+  if (key === 'users' && state.user?.role === 'super_admin') {
+    const churchField = document.createElement('div');
+    churchField.className = 'field';
+    churchField.innerHTML = `<label for="f_church_id">Igreja (linhagem) <span class="req">*</span></label>
+      <select class="select" id="f_church_id" name="church_id" data-church required></select>
+      <span class="hint">So o Administrador da Rede escolhe a igreja. Pastor ADMs e demais perfis veem apenas a propria igreja.</span>`;
+    formEl.insertBefore(churchField, formEl.firstChild);
+  }
+  await hydrateRefFields(m.body);
   const saveBtn = m.el.querySelector('[data-save]');
   saveBtn.addEventListener('click', async () => {
     const { data, errors } = collectForm(formEl, def);
@@ -191,13 +203,13 @@ export async function editRecord(key, def, id, onDone) {
     try {
       if (isNew) await api(`/api/${key}`, { method: 'POST', body: data });
       else await api(`/api/${key}/${id}`, { method: 'PUT', body: data });
-      toast(isNew ? 'Registro criado' : 'Registro atualizado', isNew ? 'Cadastro disponível para todos os módulos relacionados.' : 'Alteração registrada na auditoria.', 'ok');
+      toast(isNew ? 'Registro criado' : 'Registro atualizado', isNew ? 'Cadastro disponivel para todos os modulos relacionados.' : 'Alteracao registrada na auditoria.', 'ok');
       m.close();
       if (onDone) onDone();
     } catch (e) {
       saveBtn.disabled = false;
       saveBtn.innerHTML = `${icon('check')} Salvar`;
-      toast('Não foi possível salvar', e.message, 'err');
+      toast('Nao foi possivel salvar', e.message, 'err');
     }
   });
 }
@@ -221,6 +233,20 @@ export async function removeRecord(key, def, id, onDone) {
 }
 
 /* ==================================================== DASHBOARD EXECUTIVO */
+/* Saudação espiritual conforme hora local */
+function saudacaoEspiritual() {
+  const h = new Date().getHours();
+  if (h < 6)  return { titulo: 'De madrugada,', verso: 'Em paz me deitar e logo adormecer, porque só tu, ó Senhor, me fazes habitar em segurança. — Salmos 4:9' };
+  if (h < 12) return { titulo: 'Bom dia,', verso: 'Este é o dia que o Senhor fez; nele queremos exultar e nos alegrar! — Salmos 118:24' };
+  if (h < 18) return { titulo: 'Boa tarde,', verso: 'Sabei que o Senhor é Deus; foi ele que nos fez, e somos seus. — Salmos 100:3' };
+  return        { titulo: 'Boa noite,', verso: 'Os que confiam no Senhor renovarão as suas forças; subirão com asas como águias. — Isaías 40:31' };
+}
+
+function formatarHoraAtual() {
+  const d = new Date();
+  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+
 export async function dashboardPage(container) {
   container.innerHTML = loadingBlock('Consolidando indicadores da igreja…');
   let d, indicators;
@@ -230,45 +256,91 @@ export async function dashboardPage(container) {
   state.alerts = d.alerts;
   drawAlertBadge(d.alerts);
 
-  container.innerHTML = `
-    <div class="page-head">
-      <div>
-        <h2>Visão da Igreja</h2>
-        <p>Panorama executivo de ${esc(d.scope.church || 'sua igreja')} — pessoas, ministérios, finanças e pendências em menos de um minuto.</p>
-      </div>
-      <div class="page-actions">
-        <span class="badge neutral">${esc(d.scope.role_name || d.scope.role)}</span>
-        <button class="btn btn-ghost" data-refresh>${icon('refresh')} Atualizar</button>
-        <button class="btn btn-primary" data-go="#/assistente-ia">${icon('sparkles')} Perguntar à IA</button>
-      </div>
-    </div>
+  const sauda = saudacaoEspiritual();
+  const nome = (state.user?.name || 'Pastor').split(/\s+/)[0];
+  const hoje = formatarHoraAtual();
+  const churchLabel = d.scope.church || 'sua igreja';
 
-    <div class="grid g-5">
-      ${metricCard({ label: 'Pessoas', value: num(p.total), detail: `${num(p.ativos)} ativos · ${num(p.inativos)} inativos`, tone: 'brand', icon: 'users', href: '#/membros' })}
-      ${metricCard({ label: 'Células', value: num(m.celulas), detail: `${num(m.celulas_ativas)} ativas · ${num(m.membros_celula)} integrantes`, tone: 'brand', icon: 'layers', href: '#/celulas' })}
-      ${metricCard({ label: 'Frequência', value: `${num(indicators.frequencia)}%`, detail: `média de ${num(m.media_presenca)} presentes por reunião`, tone: indicators.frequencia >= 60 ? 'ok' : 'warn', icon: 'target', href: '#/relatorios/frequencia' })}
-      ${metricCard({ label: 'Visitantes', value: num(indicators.visitantes_mes), detail: `${num(m.lideres)} líderes · ${num(m.voluntarios)} voluntários`, tone: 'neutral', icon: 'heart', href: '#/visitantes' })}
-      ${metricCard({ label: 'Pendências', value: num(indicators.pendencias), detail: `${num(d.alerts.length)} grupos de atenção`, tone: indicators.pendencias > 0 ? 'warn' : 'ok', icon: 'alert', href: '#/alertas' })}
-    </div>
+  container.innerHTML = `
+    <section class="hero-spiritual" aria-label="Boas-vindas">
+      <div class="hero-bg" aria-hidden="true">
+        <svg class="hero-light" viewBox="0 0 600 360" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="hg1" cx="50%" cy="40%" r="65%">
+              <stop offset="0%" stop-color="#F0C674" stop-opacity=".55"/>
+              <stop offset="55%" stop-color="#5B4FA8" stop-opacity=".12"/>
+              <stop offset="100%" stop-color="#1A1F45" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="hg2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#262C66"/>
+              <stop offset="100%" stop-color="#0E1330"/>
+            </linearGradient>
+          </defs>
+          <rect width="600" height="360" fill="url(#hg2)"/>
+          <rect width="600" height="360" fill="url(#hg1)"/>
+        </svg>
+      </div>
+      <div class="hero-inner">
+        <div class="hero-cross" aria-hidden="true">
+          <svg viewBox="0 0 24 40" width="22" height="36">
+            <path d="M11 1h2v10h8v2h-8v26h-2V13H3v-2h8z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="hero-text">
+          <span class="hero-eyebrow">${esc(hoje)}</span>
+          <h1 class="hero-title">${esc(sauda.titulo)} <span class="hero-name">${esc(nome)}</span></h1>
+          <p class="hero-verse">${esc(sauda.verso)}</p>
+          <p class="hero-sub">Você está em <b>${esc(churchLabel)}</b>. Cada cadastro aqui é isolado por igreja no servidor — o que sua equipe registra nunca aparece na igreja do lado.</p>
+          <div class="hero-actions">
+            <span class="badge brand"><i class="dot"></i> ${esc(d.scope.role_name || d.scope.role)}</span>
+            <button class="btn btn-ghost hero-btn" data-refresh>${icon('refresh')} Atualizar</button>
+            <button class="btn btn-primary hero-btn" data-go="#/assistente-ia">${icon('sparkles')} Conversar com a IA</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-row" aria-label="Pano geral da igreja">
+      <div class="metric-row-title">
+        <h2>Pano geral</h2>
+        <p>Pessoas, células e o ritmo da semana em um só relance.</p>
+      </div>
+      <div class="grid g-5">
+        ${metricCard({ label: 'Pessoas', value: num(p.total), detail: `${num(p.ativos)} ativos · ${num(p.inativos)} inativos`, tone: 'brand', icon: 'users', href: '#/membros' })}
+        ${metricCard({ label: 'Células', value: num(m.celulas), detail: `${num(m.celulas_ativas)} ativas · ${num(m.membros_celula)} membros`, tone: 'brand', icon: 'layers', href: '#/celulas' })}
+        ${metricCard({ label: 'Frequência', value: `${num(indicators.frequencia)}%`, detail: `média ${num(m.media_presenca)} presentes`, tone: indicators.frequencia >= 60 ? 'ok' : 'warn', icon: 'target', href: '#/relatorios/frequencia' })}
+        ${metricCard({ label: 'Visitantes', value: num(indicators.visitantes_mes), detail: `${num(m.lideres)} líderes · ${num(m.voluntarios)} voluntários`, tone: 'neutral', icon: 'heart', href: '#/visitantes' })}
+        ${metricCard({ label: 'Pendências', value: num(indicators.pendencias), detail: `${num(d.alerts.length)} grupos de atenção`, tone: indicators.pendencias > 0 ? 'warn' : 'ok', icon: 'alert', href: '#/alertas' })}
+      </div>
+    </section>
 
     ${f ? `
-    <div class="grid g-5 mt-2">
-      ${metricCard({ label: 'Saldo atual', value: brl(f.saldo), detail: `${f.contas.length} conta(s)`, tone: f.saldo >= 0 ? 'ok' : 'danger', icon: 'wallet', href: '#/contas-bancarias' })}
-      ${metricCard({ label: 'Entradas do mês', value: brl(f.entradas_mes), detail: `dízimos ${brl(f.dizimos)} · ofertas ${brl(f.ofertas)}`, tone: 'ok', icon: 'dollar', href: '#/financeiro' })}
-      ${metricCard({ label: 'Saídas do mês', value: brl(f.saidas_mes), detail: `resultado ${brl(f.resultado_mes)}`, tone: 'danger', icon: 'dollar', href: '#/financeiro' })}
-      ${metricCard({ label: 'A pagar', value: brl(f.a_pagar), detail: `${f.contas_vencidas} vencida(s) · ${brl(f.valor_vencido)} em atraso`, tone: f.contas_vencidas ? 'danger' : 'warn', icon: 'clipboard', href: '#/contas-a-pagar' })}
-      ${metricCard({ label: 'Saldo projetado', value: brl(f.saldo_projetado), detail: `a receber ${brl(f.a_receber)} · 30 dias`, tone: f.fluxo_negativo ? 'danger' : 'brand', icon: 'chart', href: '#/fluxo-de-caixa' })}
-    </div>` : `<div class="note mt-2">Seu perfil não possui permissão para indicadores financeiros. Os valores ficam ocultos por segurança e política de privacidade.</div>`}
+    <section class="metric-row mt-2" aria-label="Vida financeira">
+      <div class="metric-row-title">
+        <h2>Vida financeira</h2>
+        <p>Dízimos, ofertas, contas e o que o caixa exige nos próximos 30 dias.</p>
+      </div>
+      <div class="grid g-5">
+        ${metricCard({ label: 'Saldo atual', value: brl(f.saldo), detail: `${f.contas.length} conta(s)`, tone: f.saldo >= 0 ? 'ok' : 'danger', icon: 'wallet', href: '#/contas-bancarias' })}
+        ${metricCard({ label: 'Entradas do mês', value: brl(f.entradas_mes), detail: `dízimos ${brl(f.dizimos)} · ofertas ${brl(f.ofertas)}`, tone: 'ok', icon: 'dollar', href: '#/financeiro' })}
+        ${metricCard({ label: 'Saídas do mês', value: brl(f.saidas_mes), detail: `resultado ${brl(f.resultado_mes)}`, tone: 'danger', icon: 'dollar', href: '#/financeiro' })}
+        ${metricCard({ label: 'A pagar', value: brl(f.a_pagar), detail: `${f.contas_vencidas} vencida(s) · ${brl(f.valor_vencido)} em atraso`, tone: f.contas_vencidas ? 'danger' : 'warn', icon: 'clipboard', href: '#/contas-a-pagar' })}
+        ${metricCard({ label: 'Saldo projetado', value: brl(f.saldo_projetado), detail: `a receber ${brl(f.a_receber)} · 30 dias`, tone: f.fluxo_negativo ? 'danger' : 'brand', icon: 'chart', href: '#/fluxo-de-caixa' })}
+      </div>
+    </section>` : `<div class="note mt-2">Seu perfil não possui permissão para indicadores financeiros. Os valores ficam ocultos por segurança e política de privacidade.</div>`}
 
-    <div class="grid g-2 mt-2">
-      <div class="card">
-        <div class="card-head"><h3>${icon('alert')} Central de Atenção</h3><span class="right small muted">${num(d.alerts.length)} grupo(s)</span></div>
+    <section class="grid g-2 mt-3" aria-label="Atenção pastoral e composição">
+      <div class="card card-soft">
+        <div class="card-head">
+          <h3>${icon('alert')} Central de Atenção</h3>
+          <span class="right small muted">${num(d.alerts.length)} grupo(s)</span>
+        </div>
         <div class="card-body stack">
           ${d.alerts.length ? d.alerts.slice(0, 6).map((a) => alertCard(a)).join('') : `<div class="empty">${icon('check')}<h4>Nada exige atenção agora</h4><p>Não há contas vencidas, escalas pendentes ou documentos a vencer.</p></div>`}
         </div>
       </div>
       <div class="stack">
-        <div class="card">
+        <div class="card card-soft">
           <div class="card-head"><h3>${icon('users')} Composição das pessoas</h3></div>
           <div class="card-body">${hBars({ items: [
             { label: 'Crianças (0–11)', value: p.faixa.criancas }, { label: 'Adolescentes (12–17)', value: p.faixa.adolescentes },
@@ -276,7 +348,7 @@ export async function dashboardPage(container) {
             { label: 'Idosos (60+)', value: p.faixa.idosos },
           ], formatter: num })}</div>
         </div>
-        <div class="card">
+        <div class="card card-soft">
           <div class="card-head"><h3>${icon('layers')} Ministérios</h3></div>
           <div class="card-body">
             <div class="grid g-2" style="gap:10px">
@@ -284,26 +356,43 @@ export async function dashboardPage(container) {
                  ['Voluntários ativos', m.voluntarios, '#/voluntarios'], ['Escalas pendentes', m.escalas_pendentes, '#/escalas']]
                 .map(([label, value, href]) => `<div class="metric clickable" data-go="${href}" style="padding:11px 12px"><div class="k">${esc(label)}</div><div class="v sm">${num(value)}</div></div>`).join('')}
             </div>
-            <div class="mt-2 small muted">Novos membros no mês: <b>${num(p.novos_mes)}</b> · Foram cadastrados ${num(p.novos_convertidos)} novos convertidos (batismos no mês).</div>
+            <div class="mt-2 small muted">Novos membros no mês: <b>${num(p.novos_mes)}</b> · Foram cadastrados ${num(p.novos_convertidos)} novos convertidos.</div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
     ${f ? `
-    <div class="card mt-2">
-      <div class="card-head"><h3>${icon('chart')} Receitas x Despesas — últimos 6 meses</h3>
+    <section class="card card-soft mt-3" aria-label="Receitas e despesas">
+      <div class="card-head"><h3>${icon('chart')} Receitas e despesas — últimos 6 meses</h3>
         <span class="right legend"><span><i style="background:#059669"></i>Entradas</span><span><i style="background:#DC2626"></i>Saídas</span></span></div>
       <div class="card-body" data-finchart>${loadingBlock('Carregando série financeira…')}</div>
-    </div>` : ''}
+    </section>` : ''}
 
-    <div class="card mt-2">
-      <div class="card-head"><h3>${icon('calendar')} Próximos eventos</h3><a class="right small" href="#/eventos">Ver todos</a></div>
+    <section class="card card-soft mt-3" aria-label="Próximos eventos">
+      <div class="card-head"><h3>${icon('calendar')} Próximos eventos</h3><a class="right small" href="#/eventos">Ver agenda</a></div>
       <div class="card-body">
         ${m.proximos_eventos.length ? `<div class="table-wrap"><table class="data compact"><thead><tr><th>Evento</th><th>Data</th><th>Local</th></tr></thead>
           <tbody>${m.proximos_eventos.map((e) => `<tr><td class="cell-main">${esc(e.name)}</td><td>${dt(e.event_date)}</td><td>${esc(e.location || '—')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><p>Nenhum evento agendado.</p></div>'}
       </div>
-    </div>`;
+      <div class="card-foot-verse">Cada pessoa registrada aqui permanece só aqui — outro pastor, outra rede, outra história.</div>
+    </section>`;
+
+  container.querySelector('[data-refresh]')?.addEventListener('click', () => dashboardPage(container));
+  container.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    location.hash = el.dataset.go;
+  }));
+  if (f && container.querySelector('[data-finchart]')) {
+    api('/api/dashboard/finance?months=6').then((fd) => {
+      const el = container.querySelector('[data-finchart]');
+      el.innerHTML = financeBars(fd.series) + `<div class="grid g-2 mt-2">
+        <div><h4 class="small muted mb-1">DESPESAS POR CENTRO DE CUSTO</h4>${hBars({ items: fd.byCenter.map((c) => ({ label: c.centro, value: c.total })) })}</div>
+        <div><h4 class="small muted mb-1">SALDO POR FUNDO</h4>${hBars({ items: fd.funds.map((x) => ({ label: x.fundo, value: x.saldo })), toneFor: (r) => (r.value < 0 ? 'danger' : 'ok') })}</div>
+      </div>`;
+    }).catch(() => { container.querySelector('[data-finchart]').innerHTML = '<div class="note">Série financeira indisponível no momento.</div>'; });
+  }
+}
 
   container.querySelector('[data-refresh]')?.addEventListener('click', () => dashboardPage(container));
   container.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.go; }));

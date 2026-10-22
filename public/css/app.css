@@ -561,3 +561,104 @@ body { -webkit-tap-highlight-color: transparent; }
 .install-btn svg { width: 15px; height: 15px; }
 @media (max-width: 560px) { .install-btn .install-label { display: none; } }
 @media (max-width: 980px) { .install-btn .install-label { display: inline; } }
+
+/* ========================================== v3.2.0 — Home (hero espiritual) */
+.hero-spiritual {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 30px 32px 28px;
+  margin-bottom: 22px;
+  color: #F5EBD6;
+  background: linear-gradient(135deg, #1A2050 0%, #2A2370 45%, #43306A 100%);
+  box-shadow: 0 24px 60px -28px rgba(20,18,60,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  isolation: isolate;
+}
+.hero-spiritual::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(60% 70% at 80% 0%, rgba(240,198,116,.28) 0%, rgba(240,198,116,0) 60%),
+    radial-gradient(40% 50% at 0% 100%, rgba(140,110,215,.35) 0%, rgba(140,110,215,0) 70%);
+}
+.hero-spiritual::after {
+  content: ''; position: absolute; right: -40px; top: -40px;
+  width: 220px; height: 220px; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle, rgba(240,198,116,.28) 0%, rgba(240,198,116,0) 60%);
+  filter: blur(10px);
+}
+.hero-bg { position: absolute; inset: 0; z-index: 0; opacity: .55; pointer-events: none; }
+.hero-light { width: 100%; height: 100%; display: block; }
+.hero-inner { position: relative; z-index: 2; display: flex; gap: 22px; align-items: flex-start; }
+.hero-cross {
+  flex: none; width: 54px; height: 54px; border-radius: 14px;
+  background: linear-gradient(160deg, rgba(240,198,116,.18), rgba(240,198,116,.04));
+  display: grid; place-content: center; color: #F0C674;
+  box-shadow: inset 0 0 0 1px rgba(240,198,116,.35), 0 8px 22px -10px rgba(240,198,116,.55);
+}
+.hero-cross svg { width: 22px; height: 36px; }
+.hero-text { min-width: 0; flex: 1; }
+.hero-eyebrow {
+  display: inline-block; font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: #F0C674; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: rgba(240,198,116,.12); border: 1px solid rgba(240,198,116,.35); margin-bottom: 14px;
+}
+.hero-title {
+  font-family: 'Cormorant Garamond','Playfair Display', Georgia, serif;
+  font-size: 38px; font-weight: 600; line-height: 1.15; letter-spacing: -.012em;
+  margin: 0 0 10px; color: #FFFFFF; text-shadow: 0 2px 14px rgba(12,14,40,.35);
+}
+.hero-name { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; color: #F0C674; font-weight: 500; }
+.hero-verse {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic;
+  font-size: 16.5px; line-height: 1.55; color: #EBE3D0;
+  margin: 0 0 10px; max-width: 70ch; padding-left: 16px; border-left: 2px solid rgba(240,198,116,.55);
+}
+.hero-sub { font-size: 13.5px; line-height: 1.55; color: #C7C0E0; margin: 4px 0 16px; max-width: 78ch; }
+.hero-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.hero-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 38px; padding: 0 15px; border-radius: 10px;
+  font-size: 13.5px; font-weight: 600; cursor: pointer; border: 1px solid transparent;
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); color: #F7F1DE;
+}
+.hero-btn svg { width: 16px; height: 16px; }
+.hero-btn:hover { background: rgba(255,255,255,.14); }
+.hero-btn.btn-primary {
+  background: linear-gradient(135deg,#F0C674,#D9A047);
+  border-color: rgba(255,255,255,.15); color: #1A1842; font-weight: 700;
+  box-shadow: 0 12px 28px -10px rgba(217,160,71,.65);
+}
+.hero-btn.btn-primary:hover { filter: brightness(1.05); }
+.hero-actions .badge.brand {
+  background: rgba(240,198,116,.18) !important;
+  color: #F0C674 !important;
+  border: 1px solid rgba(240,198,116,.35);
+}
+.hero-actions .badge.brand .dot { background: #F0C674; width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+.metric-row { display: flex; flex-direction: column; gap: 12px; }
+.metric-row-title { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding: 4px 2px; }
+.metric-row-title h2 {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 24px; font-weight: 600; letter-spacing: -.01em; color: #211A45; margin: 0;
+}
+.metric-row-title p { margin: 0; color: var(--text-soft); font-size: 13px; }
+.card-soft {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FBFBFE 100%);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 12px 32px -22px rgba(28,26,70,.25);
+}
+.card-foot-verse {
+  padding: 14px 18px 18px; border-top: 1px solid var(--border);
+  font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic;
+  font-size: 13.5px; color: #6F7896; text-align: center;
+}
+/* Esconde título antigo do page-head do dashboard — substituído pelo hero */
+.view > .page-head:first-child { display: none; }
+@media (max-width: 980px) {
+  .hero-spiritual { padding: 22px 18px 20px; border-radius: 16px; }
+  .hero-inner { flex-direction: column; gap: 14px; }
+  .hero-cross { width: 46px; height: 46px; }
+  .hero-title { font-size: 28px; }
+  .hero-verse { font-size: 14.5px; }
+  .metric-row-title h2 { font-size: 20px; }
+}

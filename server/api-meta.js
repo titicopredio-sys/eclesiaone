@@ -7,7 +7,7 @@ import { all, one } from './db.js';
 import { RESOURCES, FK_MAP } from './registry.js';
 import { json } from './api-core.js';
 
-const HIDDEN = ['id', 'church_id', 'is_demo', 'deleted_at', 'updated_at', 'created_at', 'created_by', 'password_hash'];
+const HIDDEN = ['id', 'church_id', 'is_demo', 'deleted_at', 'updated_at', 'created_at', 'created_by', 'password_hash', 'last_login'];
 
 const LABELS = {
   full_name: 'Nome completo', social_name: 'Nome social', photo_url: 'Foto (URL)', birth_date: 'Data de nascimento',
@@ -73,7 +73,8 @@ const NUMBER = new Set(['capacity', 'present_count', 'absent_count', 'visitors_c
 const MONEY = new Set(['value', 'salary', 'price', 'cost', 'quote_value', 'planned_value', 'goal', 'annual_budget',
   'initial_balance', 'amount', 'offering']);
 
-const READONLY_CREATE = new Set(['created_at', 'updated_at']);
+const READONLY_ALWAYS = new Set(['last_login', 'require_reset', 'created_at', 'updated_at', 'is_demo', 'password_hash']);
+const READONLY_CREATE = new Set(['created_at', 'updated_at', 'require_reset', 'last_login']);
 
 export const ENUMS = {
   'people.status': { ativo: ['Ativo', 'ok'], inativo: ['Inativo', 'neutral'], visitante: ['Visitante', 'info'], em_acompanhamento: ['Em acompanhamento', 'warn'], transferido: ['Transferido', 'neutral'], outro: ['Outro', 'neutral'] },
@@ -162,6 +163,14 @@ export function buildMeta() {
       const type = fieldType(def.table, col, p.type);
       const enumDef = ENUMS[`${def.table}.${col}`];
       const ref = FK_MAP[col];
+      // Para o recurso de usuarios: o campo `role` ganha a lista de perfis
+      // disponiveis na igreja atual e `password` aceita valor customizado
+      // (sempre exigida na criacao, opcional na edicao). `last_login` e
+      // controlado apenas pelo servidor (exibido na visualizacao, nunca no form).
+      const optionsCount = type === 'enum' ? Object.entries(enumDef).length : null;
+      const opts = type === 'enum'
+        ? Object.entries(enumDef).map(([v, [label, tone]]) => ({ value: v, label, tone }))
+        : (col === 'role' && def.table === 'users' ? null : (col === 'role' && def.table === 'family_members' ? Object.entries(ENUMS['family_members.role']).map(([v, [l]]) => ({ value: v, label: l })) : null));
       return {
         name: col,
         label: LABELS[col] || col.replace(/_/g, ' ').replace(/^./, (s) => s.toUpperCase()),
@@ -170,13 +179,14 @@ export function buildMeta() {
         required: (def.required || []).includes(col),
         ref: ref ? ref[0] : null,
         ref_label: ref ? ref[1] : null,
-        options: type === 'enum' ? Object.entries(enumDef).map(([v, [label, tone]]) => ({ value: v, label, tone }))
-          : (col === 'role' && def.table === 'family_members' ? Object.entries(ENUMS['family_members.role']).map(([v, [l]]) => ({ value: v, label: l })) : null),
+        options: opts,
+        options_query: col === 'role' && def.table === 'users' ? '/api/team/roles' : null,
         read_only_create: READONLY_CREATE.has(col),
+        read_only_always: READONLY_ALWAYS.has(col),
         width: (def.listColumns || []).includes(col) ? 1 : 0,
         list: (def.listColumns || []).includes(col) || col === 'title' || col === 'name' || col === 'full_name',
-        description: col === 'password' ? 'Mínimo de 6 caracteres. O usuário poderá alterá-la depois.'
-          : col === 'permissions' ? 'JSON de permissões por módulo.' : null,
+        description: col === 'password' ? 'Minimo de 8 caracteres. O usuario podera altera-la depois em Meu perfil.'
+          : col === 'permissions' ? 'JSON de permissoes por modulo.' : null,
       };
     });
     out[key] = {

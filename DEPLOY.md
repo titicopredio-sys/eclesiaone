@@ -1,7 +1,9 @@
-# Eclesia One 2.0.0 — Guia de instalação e publicação (PT-BR)
+# Eclesia One v3.2.1 — Guia de instalação e publicação (PT-BR)
 
-## 1. Credenciais do administrador geral
-Criadas por `node server/bootstrap.js` (e reimpressas em cada execução).
+## 1. Credenciais do administrador geral (MASTER)
+Provisionadas automaticamente por `server/seed-superadmin.js` na primeira subida
+do servidor (e reimpressas em todas as execuções). Valores sobrescrevíveis
+apenas via variáveis de ambiente **antes** do primeiro start.
 
 | Item | Valor |
 |---|---|
@@ -9,6 +11,7 @@ Criadas por `node server/bootstrap.js` (e reimpressas em cada execução).
 | E-mail | `thiago@eclesiaapp.com` |
 | Senha | `290369@eclesia` |
 | Papel | Super Admin (rede inteira) |
+| Igreja-raiz | Administração da Rede |
 
 Trocar a senha: entre no sistema → canto superior direito **Meu perfil** → **Alterar senha**
 (ou `PUT /api/auth/password`). O sistema guarda a senha só como hash PBKDF2-SHA256 (120 mil iterações).

@@ -329,7 +329,7 @@ export const RESOURCES = {
   /* ---------------------------------------------------------- CONFIGURACOES */
   users: {
     table: 'users', label: 'Usuário', plural: 'Usuários', module: 'configuracoes',
-    search: ['name', 'email', 'role'], required: ['name', 'email'], dates: ['last_login'], numbers: [],
+    search: ['name', 'email', 'role'], required: ['name', 'email', 'role'], dates: [], numbers: [],
     dateField: 'created_at', sort: { default: 'name', allowed: ['name', 'email', 'role', 'created_at'] },
     hidden: ['password_hash'], badge: 'role',
     listColumns: ['name', 'email', 'role', 'active', 'last_login'],

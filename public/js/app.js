@@ -17,7 +17,10 @@ import {
   finConfigPage, analyticsPage, keysPage, renderSoon, renderError, renderForbidden,
 } from './modules.js';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '3.2.1';
+
+/* Oculta qualquer referencia residual ao wizard de primeiro acesso. */
+Object.assign(window, { ECLESIA_FORCE_LOGIN_FIRST: true });
 const $ = (id) => document.getElementById(id);
 const slugify = (s) => String(s || '').toLowerCase().normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -115,14 +118,14 @@ function authHero() {
     </header>
     <main>
       <div class="eyebrow">Plataforma de gestão eclesiástica</div>
-      <h1>Uma gestão eficiente fortalece a missão da Igreja.<br/>Ministérios conectado. Um só propósito.</h1>
-      <p class="lead">O Eclesia One reúne em um só sistema os recursos necessários para administrar, acompanhar e desenvolver a vida da sua igreja com organização, segurança e propósito.</p>
+      <h1>Cada igreja, um ambiente único.<br/>Cada pastor, a sua rede.</h1>
+      <p class="lead">Pessoas, famílias, células, ministérios, pastoral, financeiro e operação reunidos em um só lugar, com o princípio do <i>isolamento por igreja</i>: tudo o que você registra aqui permanece na sua igreja.</p>
       <ul class="auth-perks">
-        <li>${icon('check')}<span>Sua igreja, mais conectada</span></li>
-        <li>${icon('check')}<span>Ministérios e lideranças em um só lugar </span></li>
-        <li>${icon('check')}<span>Informações e recursos integrados para apoiar as decisões</span></li>
-        <li>${icon('check')}<span>Gestão financeira e administrativa</span></li>
-        <li>${icon('check')}<span>Uma visão integrada da sua igreja</span></li>
+        <li>${icon('check')}<span>Visão executiva na primeira tela</span></li>
+        <li>${icon('check')}<span>Permissões verificadas no servidor (RBAC em 26 módulos)</span></li>
+        <li>${icon('check')}<span>Financeiro com fluxo de caixa projetado</span></li>
+        <li>${icon('check')}<span>Cada Pastor ADM cria a própria equipe — secretários, líderes, professores, membros</span></li>
+        <li>${icon('check')}<span>Auditoria registrando autor, data e operação de cada movimento</span></li>
       </ul>
     </main>
     <footer class="verse">
@@ -140,7 +143,7 @@ async function showAuth(message) {
   $('app').hidden = true;
   $('boot').hidden = true;
   const root = authRoot();
-  let status = { api: true, needs_setup: false, signup_enabled: true, usuarios: 0 };
+  let status = { api: true, needs_setup: false, signup_enabled: false, usuarios: 0 };
   const probe = await fetchJson('/api/setup/status').catch(() => null);
   if (!probe) status.api = false;
   else if (probe.notJson) status.api = false;
@@ -172,20 +175,6 @@ function apiMissingPanel(panel) {
       + '<li>Publique o site novamente. O login passará a usar a API remota.</li></ol>';
     panel.appendChild(box);
   });
-}
-
-function setupForm() {
-  return `<form class="auth-form" data-setup novalidate>
-    <h2>Primeiro acesso</h2>
-    <p class="small muted">Nenhum usuário existe neste banco. Crie o <b>administrador geral</b> e a primeira igreja.
-      Depois, cada igreja recebe um <b>Pastor ADM</b> — os dados de cada igreja ficam separados.</p>
-    <div class="field"><label>Nome da igreja</label><input class="input" name="church_name" required /></div>
-    <div class="field"><label>Seu nome</label><input class="input" name="name" required /></div>
-    <div class="field"><label>Seu e-mail</label><input class="input" name="email" type="email" required /></div>
-    <div class="field"><label>Senha (mínimo 8 caracteres)</label><input class="input" name="password" type="password" required /></div>
-    <div class="field-err" data-err hidden></div>
-    <button class="btn btn-primary btn-block" type="submit" data-submit>${icon('shield')} Criar administrador e entrar</button>
-  </form>`;
 }
 
 function loginForm() {
@@ -238,17 +227,25 @@ function wireLogin(root, panel, status) {
   setTimeout(() => panel.querySelector('#login-email')?.focus(), 60);
 }
 
-function wireSetup(root, panel) {
-  const form = panel.querySelector('[data-setup]');
-  form.addEventListener('submit', (ev) => { ev.preventDefault(); submitAccess(root, form, '/api/setup', { busy: 'Criando…', ok: 'Administrador criado' }); });
-  setTimeout(() => form.querySelector('input')?.focus(), 60);
-}
-
 async function renderAuthPanel(root, status, message) {
   const panel = root.querySelector('[data-panel]');
+  // Se por algum motivo o banco estiver vazio, mostrara apenas uma mensagem
+  // orientando entrar em contato com o administrador da rede. O cadastro
+  // publico foi REMOVIDO: hierarquia fechada. Somente o superadmin master pode
+  // criar igrejas e usuarios.
+  if (status.needs_setup) {
+    panel.innerHTML = `<div class="alert danger"><span class="ico">${icon('alert')}</span><div>
+      <b>Banco vazio: nenhum administrador provisionado.</b>
+      <p class="small">Suba o servidor com <span class="mono">npm start</span> (ou executando <span class="mono">node server/index.js</span>) &mdash; o seed automatico cria o usuario master na primeira inicializacao.</p>
+      <p class="small">Apos o provisionamento, entre com as credenciais exibidas no log do servidor.</p>
+      <p class="small">O cadastro publico na tela de login foi removido por segunraca. Cada igreja e administrada por seu Pastor ADM, cadastrado exclusivamente pelo superadmin.</p>
+      <button class="btn btn-ghost" data-retry>${icon('refresh')} Verificar novamente</button>
+      </div></div>`;
+    panel.querySelector('[data-retry]')?.addEventListener('click', () => showAuth());
+    return;
+  }
   const notice = message ? `<div class="alert danger mt-2"><span class="ico">${icon('alert')}</span><div><b>Não foi possível continuar</b><p>${esc(message)}</p></div></div>` : '';
   if (!status.api) { apiMissingPanel(panel); return; }
-  if (status.needs_setup) { panel.innerHTML = setupForm() + notice; wireSetup(root, panel); return; }
   panel.innerHTML = loginForm() + notice;
   wireLogin(root, panel, status);
 }

@@ -1,13 +1,21 @@
-# Acesso e primeiro uso — Eclesia One 3.0.0
+# Acesso e primeiro uso — Eclesia One v3.2.1
 
 ## 1. Entrar no sistema
+
+O **usuário MASTER** já vem provisionado automaticamente no banco na primeira subida do servidor (seed idempotente em `server/seed-superadmin.js`).
 
 | Campo | Valor |
 |---|---|
 | Endereço (no seu computador) | http://localhost:4173 |
-| **E-mail** | `thiago@eclesiaapp.com` |
-| **Senha** | `290369@eclesia` |
+| **E-mail** do MASTER | `thiago@eclesiaapp.com` |
+| **Senha** do MASTER | `290369@eclesia` |
 | Papel | **Super Admin** — administra a rede inteira |
+
+Para sobrescrever antes do primeiro start (opcional):
+```bash
+MASTER_OVERRIDE_EMAIL=... MASTER_OVERRIDE_PASSWORD=... MASTER_OVERRIDE_NAME=... MASTER_OVERRIDE_CHURCH=... npm start
+```
+(após o primeiro start, o seed passa a ser idempotente e mantém estes mesmos valores).
 
 Trocar a senha: canto superior direito → **Meu perfil → Alterar senha**.
 
@@ -15,16 +23,21 @@ Trocar a senha: canto superior direito → **Meu perfil → Alterar senha**.
 
 ```bash
 cd eclesiaone
-npm start          # não há dependências para instalar (Node 22.5+)
+npm start          # Node 22.5+ (sem dependencias)
 ```
-Abra `http://localhost:4173` e entre com o acesso acima.
-O banco já vem provisionado em `data/eclesia.db`, **sem nenhum dado fictício**.
+Abra `http://localhost:4173` e entre com o MASTER acima.
+O banco já vem provisionado em `data/eclesia.db` com o MASTER + perfis padrão
+da igreja `Administração da Rede` (sem nenhum dado fictício).
 
-Se quiser recriar o acesso em outro servidor:
-```bash
-MASTER_EMAIL=thiago@eclesiaapp.com MASTER_PASSWORD='290369@eclesia' \
-MASTER_NAME='Thiago' MASTER_CHURCH='Administração da Rede' npm run master
-```
+Para recriar as credenciais do MASTER em outro servidor (caso tenha esquecido), basta rodar `npm start` — o种子 é idempotente e o log do servidor sempre imprime as credenciais.
+
+## IMPORTANTE: tela de login
+
+A tela de login NAO oferece mais o formulario de "Primeiro acesso" — hierarquia fechada.
+So o **MASTER** pode criar igrejas e nomear seu Pastor ADM. O Pastor ADM, por sua
+vez, cadastra sua equipe (Secretaria, Financeiro, Lideres, Professores, Recepcao, Membros).
+Cada usuario (Pastor, Secretaria etc.) so ve os dados da SUA igreja — o servidor
+filtra por church_id em qualquer consulta.
 
 ## 3. Cadastrar a primeira igreja cliente
 
