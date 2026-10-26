@@ -86,7 +86,7 @@ if (token) {
 
 const snapshot = {
   generated_at: new Date().toISOString(),
-  app_version: '3.2.2',
+  app_version: '3.2.3',
   igreja,
   demo_password: token ? PASSWORD : '',
   endpoints, resources, reports, accounts,

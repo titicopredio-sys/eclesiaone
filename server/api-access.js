@@ -93,7 +93,10 @@ export function registerAccessRoutes(router) {
   /* ============================================================ REDE (apenas super_admin) */
   router.add('GET', '/api/churches', authed(async (req, res, ctx) => {
     if (ctx.user.role !== 'super_admin') return json(res, 403, { error: 'A visão da rede é exclusiva do administrador geral. Cada igreja administra os próprios dados.' });
-    const rows = all('SELECT id, name, city, state, email, is_demo, onboarded, created_at FROM churches WHERE deleted_at IS NULL ORDER BY name');
+    const rows = all(`SELECT c.id, c.name, c.city, c.state, c.email, c.is_demo, c.onboarded, c.created_at,
+        (SELECT u.name FROM users u WHERE u.church_id = c.id AND u.role = 'pastor_adm' AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1) AS admin_name,
+        (SELECT u.email FROM users u WHERE u.church_id = c.id AND u.role = 'pastor_adm' AND u.deleted_at IS NULL ORDER BY u.id LIMIT 1) AS admin_email
+      FROM churches c WHERE c.deleted_at IS NULL ORDER BY c.name`);
     const data = rows.map((c) => ({ ...c, ...tenantStats(c.id) }));
     return json(res, 200, {
       data,

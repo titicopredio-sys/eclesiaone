@@ -7,7 +7,7 @@
    todas as permissões (RBAC) em cada requisição.
    ========================================================================== */
 import {
-  state, api, apiUrl, setToken, icon, esc, toast, modal, can, initials, num, dt,
+  state, api, apiUrl, setToken, icon, esc, toast, modal, confirmDialog, can, initials, num, dt, dtTime,
   metricCard, loadingBlock, RES_KEY_ALIAS,
 } from './ui.js';
 import {
@@ -17,7 +17,7 @@ import {
   finConfigPage, analyticsPage, keysPage, renderSoon, renderError, renderForbidden,
 } from './modules.js';
 
-const APP_VERSION = '3.2.2';
+const APP_VERSION = '3.2.3';
 
 /* Oculta qualquer referencia residual ao wizard de primeiro acesso. */
 Object.assign(window, { ECLESIA_FORCE_LOGIN_FIRST: true });
@@ -36,6 +36,7 @@ const routeOf = (key) => ROUTE_OF_RESOURCE[key] || RES_KEY_ALIAS[key] || slugify
 
 const PAGES = {
   igrejas: { page: churchesPage, module: 'configuracoes', superOnly: true, title: 'Igrejas da rede', icon: 'building' },
+  usuarios: { page: usersPage, module: 'configuracoes', title: 'Usuários', icon: 'shield' },
   dashboard: { page: dashboardPage, module: 'relatorios', title: 'Visão da Igreja', icon: 'dashboard' },
   alertas: { page: alertsPage, module: 'relatorios', title: 'Central de Atenção', icon: 'alert' },
   'painel-financeiro': { page: financeDashboard, module: 'financeiro', title: 'Painel Financeiro', icon: 'chart' },
@@ -391,6 +392,9 @@ function navGroups() {
   if (state.user?.role === 'super_admin') {
     groups.push({ title: 'Rede', items: [{ route: 'igrejas', label: 'Igrejas da rede', icon: 'building', module: 'configuracoes', superOnly: true }] });
   }
+  const staffItems = ['usuarios'].map((r) => ({ route: r, ...PAGES[r] }))
+    .filter(() => ['super_admin', 'pastor_adm'].includes(state.user?.role));
+  if (staffItems.length) groups.push({ title: 'Equipe', items: staffItems });
   groups.push({
     title: 'Sistema',
     items: ['assistente-ia', 'portal', 'check-in-infantil', 'patrimonio-etiquetas', 'financeiro-config', 'configuracoes', 'permissoes']
@@ -400,18 +404,34 @@ function navGroups() {
 }
 
 function renderSidebar(activeRoute) {
+  const sidebar = $('sidebar');
+  // Preserva a posição de rolagem do menu: o innerHTML re-renderiza a cada rota,
+  // mas o scrollTop volta ao valor anterior e o item ativo é trazido à vista.
+  const prevBody = sidebar.querySelector('.sidebar-body');
+  const prevScroll = prevBody ? prevBody.scrollTop : 0;
   const nav = navGroups().map((g) => `<div class="nav-group">
       <div class="nav-group-title">${esc(g.title)}</div>
       ${g.items.map((i) => `<a class="nav-item ${i.route === activeRoute ? 'active' : ''}" href="#/${i.route}">${icon(i.icon || 'grid')} <span class="trunc">${esc(i.label || i.title)}</span></a>`).join('')}
     </div>`).join('');
-  $('sidebar').innerHTML = `${brandBlock()}
+  sidebar.innerHTML = `${brandBlock()}
     <div class="sidebar-body">${nav}</div>
     <div class="sidebar-foot">
       <div class="user-chip">${icon('user')} <div style="min-width:0"><b class="trunc" style="display:block">${esc(state.user?.name || '')}</b>
         <span class="xsmall muted trunc" style="display:block">${esc(state.user?.role_name || state.user?.role || '')}</span></div></div>
       <button class="btn btn-sm btn-ghost btn-block mt-1" data-logout>${icon('logout')} Sair</button>
     </div>`;
-  $('sidebar').querySelector('[data-logout]').addEventListener('click', logout);
+  const body = sidebar.querySelector('.sidebar-body');
+  if (body) {
+    body.scrollTop = prevScroll;
+    const active = body.querySelector('.nav-item.active');
+    if (active) {
+      const at = active.offsetTop;
+      if (at < body.scrollTop + 60 || at > body.scrollTop + body.clientHeight - 60) {
+        body.scrollTop = Math.max(0, at - body.clientHeight / 2);
+      }
+    }
+  }
+  sidebar.querySelector('[data-logout]').addEventListener('click', logout);
   $('footinfo').textContent = `${state.user?.church_name || ''} · Eclesia One ${APP_VERSION} · ${new Date().toLocaleDateString('pt-BR')}`;
 }
 
@@ -541,9 +561,10 @@ async function churchesPage(container) {
     <div class="card mt-2">
       <div class="card-head"><h3>Igrejas cadastradas</h3></div>
       <div class="table-wrap"><table class="data">
-        <thead><tr><th>Igreja</th><th>Cidade</th><th>Pessoas</th><th>Usuários</th><th>Células</th><th>Criada em</th><th>Situação</th></tr></thead>
+        <thead><tr><th>Igreja</th><th>Cidade</th><th>Pastor ADM</th><th>Pessoas</th><th>Usuários</th><th>Células</th><th>Criada em</th><th>Situação</th></tr></thead>
         <tbody>${rows.map((c) => `<tr>
           <td class="cell-main">${esc(c.name)}</td><td>${esc(c.city || '—')}</td>
+          <td>${esc(c.admin_email || '—')}</td>
           <td class="num">${num(c.pessoas)}</td><td class="num">${num(c.usuarios)}</td><td class="num">${num(c.celulas)}</td>
           <td>${dt(c.created_at)}</td>
           <td><span class="badge ${c.is_demo ? 'warn' : 'ok'}">${c.is_demo ? 'Demonstração' : 'Produção'}</span></td></tr>`).join('')}</tbody>
@@ -597,6 +618,167 @@ function newChurchDialog(after) {
       btn.disabled = false; btn.innerHTML = `${icon('check')} Criar igreja`;
     }
   });
+}
+
+/* ==================================================== USUÁRIOS DA EQUIPE */
+/* Página dedicada: o MASTER gerencia a equipe de qualquer igreja (seletor de
+   linhagem); o Pastor ADM gerencia SOMENTE a equipe da própria igreja. Toda
+   regra de escopo é revalidada no servidor — a UI apenas esconde o que não
+   compete ao papel. */
+async function usersPage(container) {
+  if (!['super_admin', 'pastor_adm'].includes(state.user?.role)) return renderForbidden(container, 'a gestão de usuários');
+  const isMaster = state.user?.role === 'super_admin';
+  container.innerHTML = loadingBlock('Carregando equipe…');
+
+  let churches = [];
+  if (isMaster) {
+    try { churches = (await api('/api/churches/options')).data || []; } catch { churches = []; }
+  }
+  const { query } = parseHash();
+  const churchId = String(query.church || state.user.church_id);
+  let payload;
+  try { payload = await api('/api/team' + (isMaster ? `?church_id=${encodeURIComponent(churchId)}` : '')); }
+  catch (e) { return renderError(container, e); }
+  const roles = (payload.available_roles || []).filter((r) => !(payload.blocked_roles || []).includes(r.slug));
+  const rows = payload.data || [];
+  const activeChurchId = payload.church_id;
+  const churchName = payload.church_name || state.user?.church_name || '';
+  const ativos = rows.filter((u) => u.active).length;
+
+  container.innerHTML = `
+    <div class="page-head">
+      <div><h2>Usuários</h2>
+        <p>Equipe de <b>${esc(churchName)}</b>. Cada usuário entra com e-mail e senha e só enxerga os dados desta igreja — o isolamento é garantido no servidor.</p></div>
+      <div class="page-actions"><button class="btn btn-primary" data-new-user>${icon('plus')} Novo usuário</button></div>
+    </div>
+    ${isMaster && churches.length ? `
+    <div class="card card-soft mb-2"><div class="card-body row" style="gap:12px;align-items:center;flex-wrap:wrap">
+      ${icon('building')} <b>Igreja (linhagem):</b>
+      <select class="input" data-church-sel style="max-width:340px">
+        ${churches.map((c) => `<option value="${c.id}" ${String(c.id) === String(activeChurchId) ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
+      </select>
+      <span class="small muted">Só o Administrador da Rede escolhe a igreja. O Pastor ADM gerencia apenas a equipe da própria igreja.</span>
+    </div></div>` : ''}
+    <div class="grid g-4">
+      ${metricCard({ label: 'Usuários', value: num(rows.length), detail: `${num(ativos)} ativos · ${num(rows.length - ativos)} inativos`, tone: 'brand', icon: 'users' })}
+      ${metricCard({ label: 'Perfis disponíveis', value: num(roles.length), detail: roles.slice(0, 3).map((r) => r.name).join(', '), icon: 'shield' })}
+    </div>
+    <div class="card mt-2">
+      <div class="card-head"><h3>${icon('users')} Equipe cadastrada</h3></div>
+      <div class="table-wrap"><table class="data">
+        <thead><tr><th>Nome</th><th>E-mail</th><th>Função</th><th>Telefone</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead>
+        <tbody>${rows.length ? rows.map((u) => `<tr>
+          <td class="cell-main">${esc(u.name)}${Number(u.id) === Number(payload.self_id) ? ' <span class="badge brand">você</span>' : ''}</td>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.role_name || u.role)}</td>
+          <td>${esc(u.phone || '—')}</td>
+          <td><span class="badge ${u.active ? 'ok' : 'warn'}">${u.active ? 'Ativo' : 'Inativo'}</span></td>
+          <td>${u.last_login ? dtTime(u.last_login) : '—'}</td>
+          <td class="actions">
+            <button class="btn btn-xs btn-ghost" data-edit="${u.id}">${icon('edit')} Editar</button>
+            <button class="btn btn-xs btn-ghost" data-reset="${u.id}">${icon('key')} Nova senha</button>
+            ${Number(u.id) !== Number(payload.self_id) && u.role !== 'super_admin' ? `<button class="btn btn-xs btn-soft" data-off="${u.id}">Desativar</button>` : ''}
+          </td></tr>`).join('') : '<tr><td colspan="7"><div class="empty"><p>Nenhum usuário ainda. Clique em <b>Novo usuário</b> para criar o primeiro acesso da equipe.</p></div></td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+
+  const refresh = () => usersPage(container);
+  container.querySelector('[data-church-sel]')?.addEventListener('change', (ev) => { location.hash = `#/usuarios?church=${ev.target.value}`; });
+  container.querySelector('[data-new-user]')?.addEventListener('click', () => userDialog({ roles, churchId: activeChurchId }, refresh));
+  container.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+    const u = rows.find((x) => String(x.id) === b.dataset.edit);
+    userDialog({ roles, churchId: activeChurchId, row: u }, refresh);
+  }));
+  container.querySelectorAll('[data-reset]').forEach((b) => b.addEventListener('click', () => resetPasswordDialog(b.dataset.reset, refresh)));
+  container.querySelectorAll('[data-off]').forEach((b) => b.addEventListener('click', async () => {
+    const u = rows.find((x) => String(x.id) === b.dataset.off);
+    if (!u) return;
+    const okGo = await confirmDialog({
+      title: `Desativar ${u.name}?`,
+      message: 'O usuário perde o acesso imediatamente. O histórico e a auditoria permanecem preservados (exclusão lógica).',
+      confirmLabel: 'Desativar', danger: true,
+    });
+    if (!okGo) return;
+    try { await api(`/api/team/${u.id}`, { method: 'DELETE' }); toast('Usuário desativado', 'Acesso revogado; histórico preservado.', 'ok'); refresh(); }
+    catch (e) { toast('Não foi possível desativar', e.message, 'err'); }
+  }));
+}
+
+function userDialog({ roles, churchId, row }, after) {
+  const isNew = !row;
+  const m = modal({
+    title: isNew ? 'Novo usuário' : `Editar ${row.name}`,
+    subtitle: isNew ? 'Cria o acesso de um membro da equipe desta igreja.' : 'As alterações ficam registradas na auditoria.',
+    size: 'wide',
+    body: `<form class="form-grid" data-user novalidate>
+      <div class="field"><label>Nome *</label><input class="input" name="name" required value="${esc(row?.name || '')}" /></div>
+      <div class="field"><label>E-mail *</label><input class="input" name="email" type="email" ${isNew ? 'required' : 'disabled'} value="${esc(row?.email || '')}" /></div>
+      <div class="field"><label>Telefone</label><input class="input" name="phone" value="${esc(row?.phone || '')}" /></div>
+      <div class="field"><label>Função *</label>
+        <select class="input" name="role" required>
+          <option value="">— Selecione —</option>
+          ${roles.map((r) => `<option value="${esc(r.slug)}" ${row && row.role === r.slug ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>${isNew ? 'Senha inicial *' : 'Nova senha (opcional)'}</label>
+        <input class="input" name="password" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres" /></div>
+      ${isNew ? `<div class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="require_reset" id="f-reqreset" checked style="width:auto" /> <label for="f-reqreset" style="margin:0">Exigir troca de senha no primeiro acesso</label></div>`
+      : `<div class="field" style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="active" id="f-active" ${row.active ? 'checked' : ''} style="width:auto" /> <label for="f-active" style="margin:0">Usuário ativo (pode entrar no sistema)</label></div>`}
+      ${isNew ? `<div class="field span-2 small muted">O usuário nasce na igreja selecionada no topo da página — ele jamais verá dados de outra igreja.</div>` : ''}
+      <div class="field-err span-2" data-err hidden></div>
+      <div class="span-2 row" style="justify-content:flex-end">
+        <button type="button" class="btn btn-ghost" data-cancel>Cancelar</button>
+        <button type="button" class="btn btn-primary" data-save>${icon('check')} ${isNew ? 'Criar usuário' : 'Salvar'}</button>
+      </div>
+    </form>`,
+  });
+  const form = m.body.querySelector('[data-user]');
+  const err = m.body.querySelector('[data-err]');
+  const btn = m.body.querySelector('[data-save]');
+  m.body.querySelector('[data-cancel]').addEventListener('click', () => m.close?.());
+  btn.addEventListener('click', async () => {
+    err.hidden = true;
+    const fd = new FormData(form);
+    const body = Object.fromEntries(fd.entries());
+    body.church_id = churchId;
+    if (isNew) body.require_reset = fd.get('require_reset') ? 1 : 0;
+    else body.active = fd.get('active') ? 1 : 0;
+    if (!body.password) delete body.password;
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Salvando…';
+    try {
+      if (isNew) await api('/api/team', { method: 'POST', body });
+      else await api(`/api/team/${row.id}`, { method: 'POST', body });
+      toast(isNew ? 'Usuário criado' : 'Usuário atualizado', isNew ? 'Entregue o e-mail e a senha inicial ao usuário — ele deve trocá-la no primeiro acesso.' : 'Alteração registrada na auditoria.', 'ok');
+      m.close?.();
+      after?.();
+    } catch (e) {
+      err.hidden = false; err.textContent = e.message || 'Não foi possível salvar.';
+      btn.disabled = false; btn.innerHTML = `${icon('check')} ${isNew ? 'Criar usuário' : 'Salvar'}`;
+    }
+  });
+}
+
+async function resetPasswordDialog(id, after) {
+  const okGo = await confirmDialog({
+    title: 'Gerar nova senha provisória?',
+    message: 'A senha atual será substituída por uma senha provisória aleatória. O usuário deverá trocá-la no próximo acesso.',
+    confirmLabel: 'Gerar senha',
+  });
+  if (!okGo) return;
+  try {
+    const r = await api(`/api/team/${id}/reset-password`, { method: 'POST' });
+    const m2 = modal({
+      title: 'Senha provisória gerada',
+      size: 'wide',
+      body: `<div class="alert warn"><span class="ico">${icon('alert')}</span><div>
+        <b>Entregue em canal seguro</b>
+        <p class="small">Senha provisória: <b class="mono" style="font-size:16px">${esc(r.senha_provisoria)}</b></p>
+        <p class="small muted">A troca será exigida no próximo login. Anote agora — esta senha não será exibida novamente.</p>
+        <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn btn-primary" data-ok>Entendi</button></div>
+      </div></div>`,
+    });
+    m2.body.querySelector('[data-ok]').addEventListener('click', () => m2.close?.());
+    after?.();
+  } catch (e) { toast('Não foi possível gerar a senha', e.message, 'err'); }
 }
 
 /* ---------------------------------------------------------------------- boot */

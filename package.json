@@ -1,6 +1,6 @@
 {
   "name": "eclesia-one",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "Eclesia One - Centro de Comando Digital da Igreja: plataforma integrada de gestao eclesiastica (pessoas, celulas, pastoral, financeiro, operacao, comunicacao e inteligencia).",
   "type": "module",
   "private": true,

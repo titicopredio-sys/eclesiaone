@@ -1,4 +1,4 @@
-# Eclesia One v3.2.2 — Guia de instalação e publicação (PT-BR)
+# Eclesia One v3.2.3 — Guia de instalação e publicação (PT-BR)
 
 ## 1. Credenciais do administrador geral (MASTER)
 Provisionadas automaticamente por `server/seed-superadmin.js` na primeira subida

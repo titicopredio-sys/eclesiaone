@@ -92,6 +92,8 @@ async function main() {
       body: { name: 'Igreja Batista B', city: 'Rio de Janeiro', state: 'RJ', admin_email: 'pastor.b@igrejab.org', admin_password: 'PstB@2026', admin_name: 'Pastor B' },
     });
     log('Master cria Igreja B + Pastor ADM', churchB.status === 201 && !!churchB.data.admin);
+    log('Lista da rede mostra o Pastor ADM de cada igreja',
+      ((await req('GET', '/api/churches', { token: masterToken })).data.data?.find((c) => c.id === churchA.data.church_id)?.admin_email === 'pastor.a@igrejaa.org'));
 
     /* 5. Cada Pastor ADM entra e so ve a SUA igreja ---------------------------------- */
     const loginA = await req('POST', '/api/auth/login', { body: { email: 'pastor.a@igrejaa.org', password: 'PstA@2026' } });
@@ -123,6 +125,22 @@ async function main() {
     });
     log('Pastor A cria Secretaria via /api/team com senha inicial', userA.status === 201 && userA.data.id);
     log('Senha inicial gravada (login com a senha funciona)', (await req('POST', '/api/auth/login', { body: { email: 'sec.a@igrejaa.org', password: 'SecA@2026' } })).status === 200);
+
+    /* 7b. Pagina Usuarios: pastor lista perfis, edita, reseta e desativa ------- */
+    const rolesList = await req('GET', '/api/team/roles', { token: loginA.data.token });
+    log('Pastor lista perfis disponiveis (pagina Usuarios)', rolesList.status === 200 && rolesList.data.data?.length >= 5, `n=${rolesList.data.data?.length}`);
+    const secB = await req('POST', '/api/team', { token: loginA.data.token, body: { name: 'Recepcao B', email: 'rec.b@igrejaa.org', password: 'RecB@2026', role: 'recepcao' } });
+    log('Pastor cria segundo usuario (recepcao)', secB.status === 201 && !!secB.data.id, `status=${secB.status}`);
+    const editB = await req('POST', `/api/team/${secB.data.id}`, { token: loginA.data.token, body: { name: 'Recepcao B Editada', phone: '(11) 98888-0002' } });
+    log('Pastor edita usuario da propria igreja', editB.status === 200, `status=${editB.status}`);
+    const otherEdit = await req('POST', `/api/team/${secB.data.id}`, { token: loginB.data.token, body: { name: 'Hackeado' } });
+    log('Pastor B NAO consegue editar usuario da igreja A', otherEdit.status === 403 || otherEdit.status === 404, `status=${otherEdit.status}`);
+    const resetB = await req('POST', `/api/team/${secB.data.id}/reset-password`, { token: loginA.data.token });
+    log('Pastor gera senha provisoria', resetB.status === 200 && !!resetB.data.senha_provisoria, `status=${resetB.status}`);
+    log('Login com a senha provisoria funciona', (await req('POST', '/api/auth/login', { body: { email: 'rec.b@igrejaa.org', password: resetB.data.senha_provisoria } })).status === 200);
+    const offB = await req('DELETE', `/api/team/${secB.data.id}`, { token: loginA.data.token });
+    log('Pastor desativa usuario', offB.status === 200, `status=${offB.status}`);
+    log('Usuario desativado nao consegue mais logar', (await req('POST', '/api/auth/login', { body: { email: 'rec.b@igrejaa.org', password: resetB.data.senha_provisoria } })).status === 401);
 
     /* 8. Pastor B tenta atribuir pastor_adm (deve ser bloqueado) -------------------- */
     const illegal = await req('POST', '/api/team', {
@@ -162,6 +180,10 @@ async function main() {
       !appJs.includes("Primeiro acesso") || !appJs.match(/data-setup/i));
     log('Codigo da UI chama APENAS /api/auth/login (sem /api/setup)',
       /\/api\/auth\/login/.test(appJs) && !appJs.includes("'/api/setup'"));
+    log('Pagina dedicada "Usuarios" existe (rota + menu + criar/editar/reset/desativar)',
+      appJs.includes('function usersPage') && appJs.includes('usuarios:') && appJs.includes('data-new-user') && appJs.includes('reset-password'));
+    log('Menu lateral preserva posicao de rolagem (scrollTop + item ativo visivel)',
+      appJs.includes('body.scrollTop = prevScroll') && appJs.includes('active.offsetTop'));
 
     server2.kill();
   } catch (e) {
