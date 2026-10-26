@@ -362,7 +362,7 @@ async function main() {
     const demoStatus = await req('GET', '/api/demo/status', { token: admin });
     ok('97 status dos dados de demonstração', demoStatus.status === 200 && demoStatus.data.data.people > 100);
     const demoAccounts = await req('GET', '/api/demo/accounts');
-    ok('98 contas de demonstração listadas para o login', demoAccounts.status === 200 && demoAccounts.data.data.length === 10);
+    ok('98 backend oficial não publica contas de demonstração (lista vazia)', demoAccounts.status === 200 && demoAccounts.data.data.length === 0);
 
     /* ============================================== 15. ERROS CONTROLADOS */
     const notFound = await req('GET', '/api/rota-inexistente', { token: admin });
@@ -393,26 +393,33 @@ async function main() {
     const spa = await req('GET', '/alguma/rota/do/app', { raw: true });
     ok('108 rotas do app caem no shell (SPA fallback)', spa.status === 200 && String(spa.headers.get('content-type')).includes('html'));
 
-    /* ================================== 109+. REDE DE IGREJAS E ISOLAMENTO */
+    /* ================================== 109+. REDE DE IGREJAS E ISOLAMENTO
+       Hierarquia fechada: auto-cadastro publico (/api/signup) foi removido de
+       proposito. Somente o super_admin (MASTER) cria igrejas + Pastor ADM. */
     const suToken = admin;
     const st = await req('GET', '/api/setup/status');
     ok('109 status de primeiro acesso indica sistema ja configurado', st.status === 200 && st.data.needs_setup === false, JSON.stringify(st.data));
 
     const setupTarde = await req('POST', '/api/setup', { body: { church_name: 'Invasora', name: 'Invasor', email: 'invasor@teste.app', password: 'InvasorForte1' } });
-    ok('110 primeiro acesso e recusado quando ja existem usuarios (409)', setupTarde.status === 409, `status=${setupTarde.status}`);
+    ok('110 primeiro acesso e recusado quando ja existem usuarios', [403, 409].includes(setupTarde.status), `status=${setupTarde.status}`);
 
-    const sigA = await req('POST', '/api/signup', { body: { church_name: 'Igreja Teste Alfa', name: 'Pastor Alfa', email: 'pastor.alfa@teste.app', password: 'AlfaForte123', city: 'São Paulo', state: 'SP' } });
-    ok('111 auto-cadastro cria igreja nova e usuario Pastor ADM', sigA.status === 201 && !!sigA.data.token && sigA.data.user?.role === 'pastor_adm', JSON.stringify(sigA.data).slice(0, 200));
-    const tokenA = sigA.data?.token;
-    const churchA = sigA.data?.user?.church_id;
+    const sigA = await req('POST', '/api/churches', { token: admin, body: { name: 'Igreja Teste Alfa', city: 'São Paulo', state: 'SP', admin_name: 'Pastor Alfa', admin_email: 'pastor.alfa@teste.app', admin_password: 'AlfaForte123' } });
+    ok('111 MASTER cria igreja nova + Pastor ADM numa só ação', sigA.status === 201 && !!sigA.data.admin && sigA.data.admin.role === 'pastor_adm', JSON.stringify(sigA.data).slice(0, 200));
+    const churchA = sigA.data?.church_id;
 
-    const sigB = await req('POST', '/api/signup', { body: { church_name: 'Igreja Teste Beta', name: 'Pastor Beta', email: 'pastor.beta@teste.app', password: 'BetaForte123' } });
-    ok('112 outro Pastor ADM cria igreja separada (church_id diferente)', sigB.status === 201 && !!sigB.data.token && sigB.data.user?.church_id !== churchA, `A=${churchA} B=${sigB.data?.user?.church_id}`);
-    const tokenB = sigB.data?.token;
-    churchB = sigB.data?.user?.church_id;
+    const loginA = await req('POST', '/api/auth/login', { body: { email: 'pastor.alfa@teste.app', password: 'AlfaForte123' } });
+    ok('111b Pastor ADM da igreja A entra com a senha provisória', loginA.status === 200 && !!loginA.data.token, `status=${loginA.status}`);
+    const tokenA = loginA.data?.token;
+
+    const sigB = await req('POST', '/api/churches', { token: admin, body: { name: 'Igreja Teste Beta', city: 'Rio de Janeiro', state: 'RJ', admin_name: 'Pastor Beta', admin_email: 'pastor.beta@teste.app', admin_password: 'BetaForte123' } });
+    ok('112 MASTER cria segunda igreja separada (church_id diferente)', sigB.status === 201 && sigB.data.church_id !== churchA, `A=${churchA} B=${sigB.data?.church_id}`);
+    churchB = sigB.data?.church_id;
+    const loginB = await req('POST', '/api/auth/login', { body: { email: 'pastor.beta@teste.app', password: 'BetaForte123' } });
+    const tokenB = loginB.data?.token;
+    ok('112b Pastor ADM da igreja B entra com a senha provisória', loginB.status === 200 && !!tokenB, `status=${loginB.status}`);
 
     const duplicado = await req('POST', '/api/signup', { body: { church_name: 'Igreja Duplicada', name: 'Outro', email: 'pastor.alfa@teste.app', password: 'OutraForte123' } });
-    ok('113 e-mail ja cadastrado e recusado no auto-cadastro', [409, 422].includes(duplicado.status), `status=${duplicado.status}`);
+    ok('113 auto-cadastro público permanece bloqueado (hierarquia fechada)', [403, 409, 422].includes(duplicado.status), `status=${duplicado.status}`);
 
     const meA = await req('GET', '/api/auth/me', { token: tokenA });
     const permsA = meA.data?.permissions || {};

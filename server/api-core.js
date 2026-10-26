@@ -297,11 +297,14 @@ export function createResource(req, res, user, def, body, ip) {
     if (!currentRoleCanCreateStaff(user)) {
       return json(res, 403, { error: 'Apenas o administrador da rede ou o Pastor ADM pode cadastrar usuarios.' });
     }
+    // Linhagem: somente o super_admin escolhe a igreja do novo usuario.
+    const targetChurch = (user.role === 'super_admin' && body.church_id) ? Number(body.church_id) : user.church_id;
+    if (!churchById(targetChurch)) return json(res, 422, { error: 'A igreja selecionada nao existe.' });
     if (!clean.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(clean.email))) {
       return json(res, 422, { error: 'Informe um e-mail valido para o usuario.' });
     }
-    if (emailTakenInChurch(clean.email, user.church_id)) {
-      return json(res, 409, { error: 'Ja existe um usuario com este e-mail nesta igreja.' });
+    if (emailTaken(clean.email)) {
+      return json(res, 409, { error: 'Ja existe um usuario com este e-mail no sistema.' });
     }
     if (body.password) {
       if (String(body.password).length < 8) {
@@ -314,8 +317,9 @@ export function createResource(req, res, user, def, body, ip) {
     clean.role = normalizeRoleForCreation(clean.role || 'membro');
     // exige troca de senha no primeiro acesso (sempre que outro usuario cria)
     clean.require_reset = 1;
+    clean.church_id = targetChurch;
   }
-  clean.church_id = user.church_id;
+  if (!clean.church_id) clean.church_id = user.church_id;
   if (Object.prototype.hasOwnProperty.call(all(`PRAGMA table_info(${def.table})`).reduce((a, r) => (a[r.name] = 1, a), {}), 'is_demo')) clean.is_demo = 0;
   clean.created_at = isoNow();
   clean.updated_at = isoNow();

@@ -1,4 +1,4 @@
-# Acesso e primeiro uso — Eclesia One v3.2.1
+# Acesso e primeiro uso — Eclesia One v3.2.2
 
 ## 1. Entrar no sistema
 

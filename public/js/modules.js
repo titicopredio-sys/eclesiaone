@@ -394,19 +394,6 @@ export async function dashboardPage(container) {
   }
 }
 
-  container.querySelector('[data-refresh]')?.addEventListener('click', () => dashboardPage(container));
-  container.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.go; }));
-  if (f && container.querySelector('[data-finchart]')) {
-    api('/api/dashboard/finance?months=6').then((fd) => {
-      const el = container.querySelector('[data-finchart]');
-      el.innerHTML = financeBars(fd.series) + `<div class="grid g-2 mt-2">
-        <div><h4 class="small muted mb-1">DESPESAS POR CENTRO DE CUSTO</h4>${hBars({ items: fd.byCenter.map((c) => ({ label: c.centro, value: c.total })) })}</div>
-        <div><h4 class="small muted mb-1">SALDO POR FUNDO</h4>${hBars({ items: fd.funds.map((x) => ({ label: x.fundo, value: x.saldo })), toneFor: (r) => (r.value < 0 ? 'danger' : 'ok') })}</div>
-      </div>`;
-    }).catch(() => { container.querySelector('[data-finchart]').innerHTML = '<div class="note">Série financeira indisponível no momento.</div>'; });
-  }
-}
-
 function alertCard(a) {
   const ic = a.kind === 'danger' ? 'alert' : a.kind === 'warning' ? 'clock' : 'bell';
   return `<div class="alert ${a.kind}">

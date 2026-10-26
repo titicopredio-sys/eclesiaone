@@ -1,0 +1,12 @@
+# Normaliza quebras de linha: LF no repositório, conversão automática no checkout.
+# Remove os avisos "LF will be replaced by CRLF" no Windows.
+* text=auto eol=lf
+
+# Binários — nunca converter
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff2 binary
+*.db binary
+*.zip binary

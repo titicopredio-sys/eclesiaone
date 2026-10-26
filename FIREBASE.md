@@ -1,4 +1,4 @@
-# Publicar no Firebase Hosting — Eclesia One 2.1.0
+# Publicar no Firebase Hosting — Eclesia One v3.2.2
 
 O Firebase Hosting entrega **arquivos estáticos**. Ele não executa Node.
 Por isso existem dois modos, e a escolha é sua:

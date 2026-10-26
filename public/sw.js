@@ -2,7 +2,7 @@
    - App shell em cache: network-first com fallback offline.
    - /api/* NUNCA em cache (dados sensíveis, sempre atuais).
    Publicado na raiz do site, o que dá escopo total (requisito para instalar). */
-const CACHE = 'eclesia-one-v4';
+const CACHE = 'eclesia-one-v5';
 const SHELL = ['/', '/index.html', '/config.js', '/css/app.css', '/js/app.js', '/js/ui.js', '/js/charts.js',
   '/js/modules.js', '/js/static-demo.js', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png',
   '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'];

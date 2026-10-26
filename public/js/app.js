@@ -17,7 +17,7 @@ import {
   finConfigPage, analyticsPage, keysPage, renderSoon, renderError, renderForbidden,
 } from './modules.js';
 
-const APP_VERSION = '3.2.1';
+const APP_VERSION = '3.2.2';
 
 /* Oculta qualquer referencia residual ao wizard de primeiro acesso. */
 Object.assign(window, { ECLESIA_FORCE_LOGIN_FIRST: true });

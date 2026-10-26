@@ -116,13 +116,14 @@ const server = http.createServer(async (req, res) => {
           if (row) user = hydrateUser(row);
         }
       }
+      req.params = route.params; // rotas :id/:kind leem req.params (compatível com ctx.params)
       await route.handler(req, res, { user, params: route.params, ip: req.ip });
     } else {
       serveStatic(req, res, pathname);
     }
   } catch (err) {
     const status = err.status || 500;
-    console.error(`[ERRO ${status}] ${req.method} ${req.url} ::`, err.message);
+    console.error(`[ERRO ${status}] ${req.method} ${req.url} ::`, err.stack || err.message);
     if (!res.headersSent) {
       json(res, status, {
         error: status === 500 ? 'Não foi possível concluir a operação. A equipe técnica registrou o ocorrido.' : err.message,
